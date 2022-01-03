@@ -328,6 +328,10 @@ public final class ObjectIdentifier implements Serializable {
         out.write (DerValue.tag_ObjectId, encoding);
     }
 
+    byte[] encoding() {
+        return encoding;
+    }
+
     /**
      * Compares this identifier with another, for equality.
      *
