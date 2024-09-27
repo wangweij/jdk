@@ -92,6 +92,7 @@ class GSSLibStub {
                           MessageProp prop) ;
     native byte[] wrap(long pContext, byte[] msg, MessageProp prop);
     native byte[] unwrap(long pContext, byte[] msgToken, MessageProp prop);
+    native byte[][] inquireSecContextByOid(long pContext, Oid type);
 
     private static final Hashtable<Oid, GSSLibStub>
         table = new Hashtable<>(5);

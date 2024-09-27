@@ -27,6 +27,7 @@
 #define NATIVE_FUNC_H
 
 #include "gssapi.h"
+#include "gssapi_ext.h"
 
 #ifdef WIN32
 #include <windows.h>
@@ -150,6 +151,16 @@ typedef OM_uint32 (*INQUIRE_CONTEXT_FN_PTR)
                                 int *locally_initiated,
                                 int *open);
 
+typedef OM_uint32 (*RELEASE_BUFFER_SET_FN_PTR)
+                                (OM_uint32 *minor_status,
+                                gss_buffer_set_t *data_set);
+
+typedef OM_uint32 (*INQUIRE_SEC_CONTEXT_BY_OID_FN_PTR)
+                                (OM_uint32 *minor_status,
+                                gss_const_ctx_id_t context_handle,
+                                gss_OID desired_object,
+                                gss_buffer_set_t *data_set);
+
 typedef OM_uint32 (*DELETE_SEC_CONTEXT_FN_PTR)
                                 (OM_uint32 *minor_status,
                                 gss_ctx_id_t *context_handle,
@@ -253,9 +264,11 @@ typedef struct GSS_FUNCTION_TABLE {
     RELEASE_CRED_FN_PTR                 releaseCred;
     INQUIRE_CRED_FN_PTR                 inquireCred;
     IMPORT_SEC_CONTEXT_FN_PTR           importSecContext;
+    RELEASE_BUFFER_SET_FN_PTR           releaseBufferSet;
     INIT_SEC_CONTEXT_FN_PTR             initSecContext;
     ACCEPT_SEC_CONTEXT_FN_PTR           acceptSecContext;
     INQUIRE_CONTEXT_FN_PTR              inquireContext;
+    INQUIRE_SEC_CONTEXT_BY_OID_FN_PTR   inquireSecContextByOid;
     DELETE_SEC_CONTEXT_FN_PTR           deleteSecContext;
     CONTEXT_TIME_FN_PTR                 contextTime;
     WRAP_SIZE_LIMIT_FN_PTR              wrapSizeLimit;

@@ -520,6 +520,7 @@ public class Credentials {
             DEBUG.println("\tstartTime: " + c.startTime.getTime());
         }
         DEBUG.println("\tendTime: " + c.endTime.getTime());
+        DEBUG.println("\tflags: " + c.flags);
         DEBUG.println("        ----Credentials end----");
     }
 

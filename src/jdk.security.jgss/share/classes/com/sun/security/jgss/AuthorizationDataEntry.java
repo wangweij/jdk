@@ -25,6 +25,11 @@
 
 package com.sun.security.jgss;
 
+import sun.security.util.SecurityProperties;
+
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
 /**
  * Kerberos 5 AuthorizationData entry.
  *
@@ -66,5 +71,40 @@ public final class AuthorizationDataEntry {
         return "AuthorizationDataEntry: type="+type+", data=" +
                 data.length + " bytes:\n" +
                 new sun.security.util.HexDumpEncoder().encodeBuffer(data);
+    }
+
+    static int[] interestedTypes;
+
+    static {
+        String prop = SecurityProperties.privilegedGetOverridable(
+                "jdk.security.krb5.default.interested.ad-type");
+        if (prop == null) {
+            interestedTypes = new int[0];
+        } else {
+            interestedTypes = Stream.of(prop.split("\\s*,\\s*"))
+                    .filter(Predicate.not(String::isEmpty))
+                    .mapToInt(Integer::parseInt)
+                    .toArray();
+        }
+    }
+
+    /**
+     * Sets the interested ad-type values.
+     * <p>
+     * When {@code ExtendedGSSContext.inquireSecContext(InquireType.KRB5_GET_AUTHZ_DATA)}
+     * is called, only entries whose ad-type in this list are guaranteed to
+     * be retrieved. The default values are {@code {1, 4, 5, 8, 96, 97, 128, 129, 143}}.
+     *
+     * @param types interested ad-type values
+     * @return the old interested ad-type values
+     * @throws IllegalArgumentException if {@code types} is null
+     */
+    public static int[] setInterestedTypes(int[] types) {
+        if (types == null) {
+            throw new IllegalArgumentException("Interested types cannot be null or empty");
+        }
+        int[] old = interestedTypes;
+        interestedTypes = types.clone();
+        return old;
     }
 }

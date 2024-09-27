@@ -26,18 +26,29 @@
 package sun.security.jgss.wrapper;
 
 import org.ietf.jgss.*;
+
 import java.lang.ref.Cleaner;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.security.Provider;
 import sun.security.jgss.GSSHeader;
 import sun.security.jgss.GSSUtil;
 import sun.security.jgss.GSSExceptionImpl;
+import sun.security.jgss.KerberosSessionKey;
 import sun.security.jgss.spi.*;
+import sun.security.krb5.internal.AuthorizationData;
+import sun.security.krb5.internal.AuthorizationDataEntry;
+import sun.security.krb5.internal.KerberosTime;
+import sun.security.util.BitArray;
 import sun.security.util.DerValue;
 import sun.security.util.ObjectIdentifier;
 import sun.security.jgss.spnego.NegTokenInit;
 import sun.security.jgss.spnego.NegTokenTarg;
 import javax.security.auth.kerberos.DelegationPermission;
+import javax.security.auth.kerberos.EncryptionKey;
 import java.io.*;
+import java.util.ArrayList;
+import java.util.List;
 
 
 /**
@@ -679,7 +690,84 @@ class NativeGSSContext implements GSSContextSpi {
 
     public Object inquireSecContext(String type)
             throws GSSException {
-        throw new GSSException(GSSException.UNAVAILABLE, -1,
-                "Inquire type not supported.");
+        return switch (type) {
+            case "KRB5_GET_SESSION_KEY", "KRB5_GET_SESSION_KEY_EX" -> {
+                byte[][] data = inquireSecContextByOid(new Oid("1.2.840.113554.1.2.2.5.5"));
+                if (data != null && data.length >= 2) {
+                    byte[] keyBytes = data[0];
+                    int etype = data[1][data[1].length - 1] & 0xff;
+                    yield type.equals("KRB5_GET_SESSION_KEY")
+                            ? new KerberosSessionKey(etype, keyBytes)
+                            : new EncryptionKey(keyBytes, etype);
+                } else {
+                    throw new GSSException(GSSException.UNAVAILABLE);
+                }
+            }
+            case "KRB5_GET_TKT_FLAGS" -> {
+                byte[][] data = inquireSecContextByOid(new Oid("1.2.840.113554.1.2.2.5.1"));
+                if (data != null && data.length >= 1) {
+                    BitArray flags = new BitArray(
+                            data[0].length * 8,
+                            new byte[] { data[0][3], data[0][2], data[0][1], data[0][0] });
+                    yield flags.toBooleanArray();
+                } else {
+                    throw new GSSException(GSSException.UNAVAILABLE);
+                }
+            }
+            case "KRB5_GET_AUTHTIME" -> {
+                byte[][] data = inquireSecContextByOid(new Oid("1.2.840.113554.1.2.2.5.12"));
+                if (data != null && data.length >= 1) {
+                    int t = ByteBuffer.wrap(data[0]).order(ByteOrder.nativeOrder())
+                            .asIntBuffer().get();
+                    KerberosTime kt = new KerberosTime(t * 1000L);
+                    yield kt.toString();
+                } else {
+                    throw new GSSException(GSSException.UNAVAILABLE);
+                }
+            }
+//            case "KRB5_GET_KRB_CRED" // not supported
+            default -> throw new GSSException(GSSException.UNAVAILABLE, -1,
+                    "Inquire type not supported.");
+        };
+    }
+
+    public AuthorizationData inquireAuthData(int[] types)
+            throws GSSException {
+        if (isInitiator()) {
+            throw new GSSException(GSSException.UNAVAILABLE, -1,
+                    "AuthzData not available on initiator side.");
+        }
+        List<AuthorizationDataEntry> entries = new ArrayList<>();
+        for (int i : types) {
+            try {
+                byte[][] data = inquireSecContextByOid(new Oid("1.2.840.113554.1.2.2.5.10." + i));
+                if (data != null && data.length >= 1) {
+                    entries.add(new AuthorizationDataEntry(1, data[0]));
+                    throw new GSSException(GSSException.UNAVAILABLE);
+                }
+            } catch (GSSException e) {
+                // ignored
+            }
+        }
+        try {
+            return new AuthorizationData(entries.toArray(new AuthorizationDataEntry[0]));
+        } catch (IOException ioe) {
+            throw new AssertionError("should not happen", ioe);
+        }
+    }
+
+    public byte[][] inquireSecContextByOid(Oid oid)
+            throws GSSException {
+        try {
+            return cStub.inquireSecContextByOid(pContext, oid);
+        } catch (Exception e) {
+            if (e instanceof GSSException ge) {
+                throw ge;
+            } else {
+                GSSException ge = new GSSException(GSSException.FAILURE);
+                ge.initCause(e);
+                throw ge;
+            }
+        }
     }
 }

@@ -1172,6 +1172,48 @@ error:
   return NULL;
 }
 
+JNIEXPORT jobjectArray JNICALL
+Java_sun_security_jgss_wrapper_GSSLibStub_inquireSecContextByOid(JNIEnv *env,
+                                                         jobject jobj,
+                                                         jlong pContext,
+                                                         jobject joid)
+{
+  OM_uint32 minor, major;
+  gss_ctx_id_t contextHdl;
+  gss_OID oid;
+  gss_buffer_set_t result = NULL;
+  contextHdl = (gss_ctx_id_t) jlong_to_ptr(pContext);
+  jobjectArray jresult = NULL;
+
+  TRACE1("[GSSLibStub_inquireSecContextByOid] %" PRIuPTR "", (uintptr_t)contextHdl);
+
+  if (ftab->inquireSecContextByOid == NULL || ftab->releaseBufferSet == NULL) {
+      checkStatus(env, jobj, GSS_S_UNAVAILABLE, 0, "[GSSLibStub_inquireSecContextByOid]");
+      return NULL;
+  }
+  oid = newGSSOID(env, joid);
+  major = (*ftab->inquireSecContextByOid)(&minor, contextHdl, oid, &result);
+  checkStatus(env, jobj, major, minor, "[GSSLibStub_inquireSecContextByOid]");
+  if ((*env)->ExceptionCheck(env)) {
+    return NULL;
+  }
+
+  if (result) {
+    TRACE1("[GSSLibStub_inquireSecContextByOid] result->count %zu", result->count);
+    jclass cls = (*env)->FindClass(env, "[B");
+    jresult = (*env)->NewObjectArray(env, (jsize)result->count, cls, NULL);
+    for (int i = 0; i < result->count; i++) {
+      jbyteArray each = getJavaBuffer(env, &result->elements[i]);
+      if ((*env)->ExceptionCheck(env)) {
+        return NULL;
+      }
+      (*env)->SetObjectArrayElement(env, jresult, i, each);
+    }
+    (*ftab->releaseBufferSet)(&minor, &result);
+  }
+  return jresult;
+}
+
 /*
  * Class:     sun_security_jgss_wrapper_GSSLibStub
  * Method:    inquireContext

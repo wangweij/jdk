@@ -45,6 +45,7 @@
 
 #define GSS_DLL_FILE
 #include <gssapi.h>
+#include <gssapi_ext.h>
 
 #define SECURITY_WIN32
 #include <sspi.h>
@@ -88,6 +89,9 @@ gss_OID_desc USER_NAME_OID = {10, (void*)"\x2a\x86\x48\x86\xf7\x12\x01\x02\x01\x
 gss_OID_desc KRB5_NAME_OID = {10, (void*)"\x2a\x86\x48\x86\xf7\x12\x01\x02\x02\x01"};
 gss_OID_desc HOST_SERVICE_NAME_OID = {10, (void*)"\x2a\x86\x48\x86\xf7\x12\x01\x02\x01\x04"};
 gss_OID_desc EXPORT_NAME_OID = {6, (void*)"\x2b\x06\x01\x05\x06\x04"};
+gss_OID_desc GSS_KRB5_GET_TKT_FLAGS_OID = {11, (void*)"\x2a\x86\x48\x86\xf7\x12\x01\x02\x02\x05\x01"};
+gss_OID_desc GSS_KRB5_INQ_SSPI_SESSION_KEY_OID = {11, (void*)"\x2a\x86\x48\x86\xf7\x12\x01\x02\x02\x05\x05"};
+gss_OID_desc GSS_KRB5_EXTRACT_AUTHZ_DATA_FROM_SEC_CONTEXT_OID = {11, (void*)"\x2a\x86\x48\x86\xf7\x12\x01\x02\x02\x05\x0a"};
 
 struct gss_name_struct {
     SEC_WCHAR* name;
@@ -1662,6 +1666,99 @@ gss_release_buffer(OM_uint32 *minor_status,
     buffer->value = NULL;
     buffer->length = 0;
     return GSS_S_COMPLETE;
+}
+
+OM_uint32
+generic_gss_add_buffer_set_member(OM_uint32 *minor_status,
+                                  const gss_buffer_t member_buffer,
+                                  gss_buffer_set_t *buffer_set)
+{
+    gss_buffer_set_t set;
+    gss_buffer_t p;
+    //OM_uint32 ret;
+
+    if (*buffer_set == GSS_C_NO_BUFFER_SET) {
+        *buffer_set = new gss_buffer_set_desc;
+        if (*buffer_set == GSS_C_NO_BUFFER_SET) {
+            *minor_status = ENOMEM;
+            return GSS_S_FAILURE;
+        }
+        (*buffer_set)->count = 0;
+        (*buffer_set)->elements = NULL;
+    }
+
+    set = *buffer_set;
+    gss_buffer_desc *new_elements = new gss_buffer_desc[set->count + 1];
+    if (new_elements == NULL) {
+        *minor_status = ENOMEM;
+        return GSS_S_FAILURE;
+    }
+    if (set->count > 0) {
+        memcpy(new_elements, set->elements, set->count * sizeof(gss_buffer_desc));
+    }
+    if (set->elements) delete[] set->elements;
+    set->elements = new_elements;
+
+
+    p = &set->elements[set->count];
+
+    p->value = new char[member_buffer->length];
+    if (p->value == NULL) {
+        *minor_status = ENOMEM;
+        return GSS_S_FAILURE;
+    }
+    memcpy(p->value, member_buffer->value, member_buffer->length);
+    p->length = member_buffer->length;
+
+    set->count++;
+
+    *minor_status = 0;
+    return GSS_S_COMPLETE;
+}
+
+OM_uint32 gss_release_buffer_set
+	(OM_uint32 * minor_status,
+	 gss_buffer_set_t * buffer_set) {
+    if (*buffer_set) {
+        delete[] (*buffer_set)->elements;
+    }
+    delete *buffer_set;
+    return GSS_S_COMPLETE;
+}
+
+void print_set(gss_buffer_set_t * buffer_set) {
+	gss_buffer_set_t set = * buffer_set;
+	printf("Count %zu\n", set->count);
+	for (int i = 0; i < set->count; i++) {
+		printf("  #%d: %zu\n ", i, set->elements[i].length);
+		char* vv = (char*)set->elements[i].value;
+		for (int j = 0; j < set->elements[i].length; j++) {
+			printf(" %02x", vv[j]);
+		}
+		printf("\n");
+	}
+}
+
+__declspec(dllexport) OM_uint32 gss_inquire_sec_context_by_oid
+	(OM_uint32 * minor_status,
+	 const gss_ctx_id_t context_handle,
+	 const gss_OID mech,
+	 gss_buffer_set_t * data_set) {
+	if (is_same_oid(mech, &GSS_KRB5_INQ_SSPI_SESSION_KEY_OID)) {
+	    (*data_set)->count = 2;
+	    //data_set->elements[0] = new byte[4];
+	    //data_set->elements[1] = new byte[4];
+	    // memcpy flags
+        return GSS_S_COMPLETE;
+	} else if (is_same_oid(mech, &GSS_KRB5_GET_TKT_FLAGS_OID)) {
+	    (*data_set)->count = 1;
+	    //data_set->elements[0] = new byte[4];
+	    // memcpy flags
+        return GSS_S_COMPLETE;
+	} else if (is_same_oid(mech, &GSS_KRB5_EXTRACT_AUTHZ_DATA_FROM_SEC_CONTEXT_OID)) {
+        return GSS_S_COMPLETE;
+	}
+    return GSS_S_UNAVAILABLE;
 }
 
 /* End implemented section */

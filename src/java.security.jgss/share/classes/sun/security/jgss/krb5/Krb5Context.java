@@ -26,6 +26,7 @@
 package sun.security.jgss.krb5;
 
 import org.ietf.jgss.*;
+import sun.security.jgss.KerberosSessionKey;
 import sun.security.util.HexDumpEncoder;
 import sun.security.jgss.GSSUtil;
 import sun.security.jgss.GSSCaller;
@@ -1376,41 +1377,6 @@ class Krb5Context implements GSSContextSpi {
     }
 
     /**
-     * The session key returned by inquireSecContext(KRB5_INQ_SSPI_SESSION_KEY)
-     */
-    static class KerberosSessionKey implements Key {
-        private static final long serialVersionUID = 699307378954123869L;
-
-        @SuppressWarnings("serial") // Not statically typed as Serializable
-        private final EncryptionKey key;
-
-        KerberosSessionKey(EncryptionKey key) {
-            this.key = key;
-        }
-
-        @Override
-        public String getAlgorithm() {
-            return Integer.toString(key.getEType());
-        }
-
-        @Override
-        public String getFormat() {
-            return "RAW";
-        }
-
-        @Override
-        public byte[] getEncoded() {
-            return key.getBytes().clone();
-        }
-
-        @Override
-        public String toString() {
-            return "Kerberos session key: etype: " + key.getEType() + "\n" +
-                    new HexDumpEncoder().encodeBuffer(key.getBytes());
-        }
-    }
-
-    /**
      * Return the mechanism-specific attribute associated with {@code type}.
      */
     public Object inquireSecContext(String type)
@@ -1421,19 +1387,12 @@ class Krb5Context implements GSSContextSpi {
         }
         switch (type) {
             case "KRB5_GET_SESSION_KEY":
-                return new KerberosSessionKey(key);
+                return new KerberosSessionKey(key.getEType(), key.getBytes());
             case "KRB5_GET_SESSION_KEY_EX":
                 return new javax.security.auth.kerberos.EncryptionKey(
                         key.getBytes(), key.getEType());
             case "KRB5_GET_TKT_FLAGS":
                 return tktFlags.clone();
-            case "KRB5_GET_AUTHZ_DATA":
-                if (isInitiator()) {
-                    throw new GSSException(GSSException.UNAVAILABLE, -1,
-                            "AuthzData not available on initiator side.");
-                } else {
-                    return authzData;
-                }
             case "KRB5_GET_AUTHTIME":
                 return authTime;
             case "KRB5_GET_KRB_CRED":
@@ -1461,7 +1420,20 @@ class Krb5Context implements GSSContextSpi {
                 "Inquire type not supported.");
     }
 
-    // Helpers for inquireSecContext
+    public AuthorizationData inquireAuthData(int[] types)
+            throws GSSException {
+        // Attention: the SPI method returns a value of the internal
+        // class AuthorizationData. The ExtendedGSSContext API will
+        // translate it into a public class AuthorizationDataEntry
+        // that's only defined in the jdk.security.jgss module.
+        if (isInitiator()) {
+            throw new GSSException(GSSException.UNAVAILABLE, -1,
+                    "AuthzData not available on initiator side.");
+        } else {
+            return authzData;
+        }
+    }
+        // Helpers for inquireSecContext
     private boolean[] tktFlags;
     private String authTime;
     private AuthorizationData authzData;

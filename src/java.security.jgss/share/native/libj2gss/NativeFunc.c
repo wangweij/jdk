@@ -44,6 +44,8 @@ static const char IMPORT_SEC_CONTEXT[]          = "gss_import_sec_context";
 static const char INIT_SEC_CONTEXT[]            = "gss_init_sec_context";
 static const char ACCEPT_SEC_CONTEXT[]          = "gss_accept_sec_context";
 static const char INQUIRE_CONTEXT[]             = "gss_inquire_context";
+static const char INQUIRE_SEC_CONTEXT_BY_OID[]  = "gss_inquire_sec_context_by_oid";
+static const char RELEASE_BUFFER_SET[]          = "gss_release_buffer_set";
 static const char DELETE_SEC_CONTEXT[]          = "gss_delete_sec_context";
 static const char CONTEXT_TIME[]                = "gss_context_time";
 static const char WRAP_SIZE_LIMIT[]             = "gss_wrap_size_limit";
@@ -163,6 +165,12 @@ int loadNative(const char *libName) {
         failed = TRUE;
         goto out;
     }
+
+    ftab->releaseBufferSet = (RELEASE_BUFFER_SET_FN_PTR)
+                        GETFUNC(gssLib, RELEASE_BUFFER_SET);
+
+    ftab->inquireSecContextByOid = (INQUIRE_SEC_CONTEXT_BY_OID_FN_PTR)
+                        GETFUNC(gssLib, INQUIRE_SEC_CONTEXT_BY_OID);
 
     ftab->inquireContext = (INQUIRE_CONTEXT_FN_PTR)
                         GETFUNC(gssLib, INQUIRE_CONTEXT);
