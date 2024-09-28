@@ -725,7 +725,6 @@ class NativeGSSContext implements GSSContextSpi {
                     throw new GSSException(GSSException.UNAVAILABLE);
                 }
             }
-//            case "KRB5_GET_KRB_CRED" // not supported
             default -> throw new GSSException(GSSException.UNAVAILABLE, -1,
                     "Inquire type not supported.");
         };

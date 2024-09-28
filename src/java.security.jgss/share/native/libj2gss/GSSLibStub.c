@@ -1202,7 +1202,7 @@ Java_sun_security_jgss_wrapper_GSSLibStub_inquireSecContextByOid(JNIEnv *env,
     TRACE1("[GSSLibStub_inquireSecContextByOid] result->count %zu", result->count);
     jclass cls = (*env)->FindClass(env, "[B");
     jresult = (*env)->NewObjectArray(env, (jsize)result->count, cls, NULL);
-    for (int i = 0; i < result->count; i++) {
+    for (int i = 0; i < (int)result->count; i++) {
       jbyteArray each = getJavaBuffer(env, &result->elements[i]);
       if ((*env)->ExceptionCheck(env)) {
         return NULL;

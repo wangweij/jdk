@@ -1433,7 +1433,8 @@ class Krb5Context implements GSSContextSpi {
             return authzData;
         }
     }
-        // Helpers for inquireSecContext
+    
+    // Helpers for inquireSecContext
     private boolean[] tktFlags;
     private String authTime;
     private AuthorizationData authzData;

@@ -850,6 +850,112 @@ gss_import_sec_context(OM_uint32 *minor_status,
     return GSS_S_FAILURE;
 }
 
+void query_status(PCtxtHandle h) {
+    SECURITY_STATUS ss;
+    // A lot of FreeContextBuffer calls needed if this is not debug code.
+    SecPkgContext_AccessToken at = {0};
+    ss = QueryContextAttributes(h, SECPKG_ATTR_ACCESS_TOKEN, &at);
+    if (ss == SEC_E_OK) {
+        PP("SECPKG_ATTR_ACCESS_TOKEN");
+    }
+    SecPkgContext_Authority a = {0};
+    ss = QueryContextAttributes(h, SECPKG_ATTR_AUTHORITY, &a);
+    if (ss == SEC_E_OK) {
+        PP("SECPKG_ATTR_AUTHORITY %ls", a.sAuthorityName);
+    }
+    SecPkgContext_ClientSpecifiedTarget cst = {0};
+    ss = QueryContextAttributes(h, SECPKG_ATTR_CLIENT_SPECIFIED_TARGET, &cst);
+    if (ss == SEC_E_OK) {
+        PP("SECPKG_ATTR_CLIENT_SPECIFIED_TARGET");
+    }
+    SecPkgContext_DceInfo di = {0};
+    ss = QueryContextAttributes(h, SECPKG_ATTR_DCE_INFO, &di);
+    if (ss == SEC_E_OK) {
+        PP("SECPKG_ATTR_DCE_INFO %ld", di.AuthzSvc);
+    }
+    SecPkgContext_Bindings b = {0};
+    ss = QueryContextAttributes(h, SECPKG_ATTR_ENDPOINT_BINDINGS, &b);
+    if (ss == SEC_E_OK) {
+        PP("SECPKG_ATTR_ENDPOINT_BINDINGS");
+    }
+    SecPkgContext_Flags f = {0};
+    ss = QueryContextAttributes(h, SECPKG_ATTR_FLAGS, &f);
+    if (ss == SEC_E_OK) {
+        PP("SECPKG_ATTR_FLAGS %ld", f.Flags);
+    }
+    SecPkgContext_KeyInfo ki = {0};
+    ss = QueryContextAttributes(h, SECPKG_ATTR_KEY_INFO, &ki);
+    if (ss == SEC_E_OK) {
+        PP("SECPKG_ATTR_KEY_INFO %ld - %ld - %ld - %ls - %ls",
+                        ki.KeySize, ki.SignatureAlgorithm, ki.EncryptAlgorithm,
+                        ki.sSignatureAlgorithmName, ki.sEncryptAlgorithmName);
+    }
+    SecPkgContext_LastClientTokenStatus lcts = {0};
+    ss = QueryContextAttributes(h, SECPKG_ATTR_LAST_CLIENT_TOKEN_STATUS, &lcts);
+    if (ss == SEC_E_OK) {
+        PP("SECPKG_ATTR_LAST_CLIENT_TOKEN_STATUS %d", lcts.LastClientTokenStatus);
+    }
+    SecPkgContext_Lifespan ls = {0};
+    ss = QueryContextAttributes(h, SECPKG_ATTR_LIFESPAN, &ls);
+    if (ss == SEC_E_OK) {
+        PP("SECPKG_ATTR_LIFESPAN");
+        show_time("tsStart", &(ls.tsStart));
+        show_time("tsExpiry", &(ls.tsExpiry));
+    }
+    SecPkgContext_Names n = {0};
+    ss = QueryContextAttributes(h, SECPKG_ATTR_NAMES, &n);
+    if (ss == SEC_E_OK) {
+        PP("SECPKG_ATTR_NAMES %ls", n.sUserName);
+    }
+    SecPkgContext_NativeNames nn = {0};
+    ss = QueryContextAttributes(h, SECPKG_ATTR_NATIVE_NAMES, &nn);
+    if (ss == SEC_E_OK) {
+        PP("SECPKG_ATTR_NATIVE_NAMES %ls %ls", nn.sClientName, nn.sServerName);
+    }
+    SecPkgContext_NegotiationInfo ni = {0};
+    ss = QueryContextAttributes(h, SECPKG_ATTR_NEGOTIATION_INFO, &ni);
+    if (ss == SEC_E_OK) {
+        PP("SECPKG_ATTR_NEGOTIATION_INFO %ld %ls %ls %ld %d %d %ld", ni.NegotiationState,
+                ni.PackageInfo->Name, ni.PackageInfo->Comment,
+                ni.PackageInfo->fCapabilities, ni.PackageInfo->wVersion,
+                ni.PackageInfo->wRPCID, ni.PackageInfo->cbMaxToken);
+    }
+    SecPkgContext_PackageInfo pi = {0};
+    ss = QueryContextAttributes(h, SECPKG_ATTR_PACKAGE_INFO, &pi);
+    if (ss == SEC_E_OK) {
+        PP("SECPKG_ATTR_PACKAGE_INFO %ls %ls %ld %d %d %ld",
+                pi.PackageInfo->Name, pi.PackageInfo->Comment,
+                pi.PackageInfo->fCapabilities, pi.PackageInfo->wVersion,
+                pi.PackageInfo->wRPCID, pi.PackageInfo->cbMaxToken);
+    }
+    SecPkgContext_PasswordExpiry pe = {0};
+    ss = QueryContextAttributes(h, SECPKG_ATTR_PASSWORD_EXPIRY, &pe);
+    if (ss == SEC_E_OK) {
+        PP("SECPKG_ATTR_PASSWORD_EXPIRY");
+    }
+    SecPkgContext_SessionKey sk = {0};
+    ss = QueryContextAttributes(h, SECPKG_ATTR_SESSION_KEY, &sk);
+    if (ss == SEC_E_OK) {
+        dump("SECPKG_ATTR_SESSION_KEY", sk.SessionKey, sk.SessionKeyLength);
+    }
+    SecPkgContext_Sizes s = {0};
+    ss = QueryContextAttributes(h, SECPKG_ATTR_SIZES, &s);
+    if (ss == SEC_E_OK) {
+        PP("SECPKG_ATTR_SIZES %ld %ld %ld %ld", s.cbMaxToken, s.cbMaxSignature,
+                s.cbBlockSize, s.cbSecurityTrailer);
+    }
+    SecPkgContext_SubjectAttributes sa = {0};
+    ss = QueryContextAttributes(h, SECPKG_ATTR_SUBJECT_SECURITY_ATTRIBUTES, &sa);
+    if (ss == SEC_E_OK) {
+        PP("SECPKG_ATTR_SUBJECT_SECURITY_ATTRIBUTES");
+    }
+    SecPkgContext_TargetInformation ti = {0};
+    ss = QueryContextAttributes(h, SECPKG_ATTR_TARGET_INFORMATION, &ti);
+    if (ss == SEC_E_OK) {
+        dump("SECPKG_ATTR_TARGET_INFORMATION", ti.MarshalledTargetInfo, ti.MarshalledTargetInfoLength);
+    }
+}
+
 __declspec(dllexport) OM_uint32
 gss_init_sec_context(OM_uint32 *minor_status,
                      gss_const_cred_id_t initiator_cred_handle,
@@ -998,6 +1104,8 @@ gss_init_sec_context(OM_uint32 *minor_status,
             pc->SecPkgContextSizes.cbMaxSignature,
             pc->SecPkgContextSizes.cbBlockSize,
             pc->SecPkgContextSizes.cbSecurityTrailer);
+
+    query_status(&pc->hCtxt);
 
     output_token->length = outSecBuff.cbBuffer;
     if (outSecBuff.cbBuffer) {
@@ -1675,7 +1783,7 @@ generic_gss_add_buffer_set_member(OM_uint32 *minor_status,
 {
     gss_buffer_set_t set;
     gss_buffer_t p;
-    //OM_uint32 ret;
+    // OM_uint32 ret;
 
     if (*buffer_set == GSS_C_NO_BUFFER_SET) {
         *buffer_set = new gss_buffer_set_desc;
@@ -1717,8 +1825,8 @@ generic_gss_add_buffer_set_member(OM_uint32 *minor_status,
 }
 
 OM_uint32 gss_release_buffer_set
-	(OM_uint32 * minor_status,
-	 gss_buffer_set_t * buffer_set) {
+    (OM_uint32 * minor_status,
+     gss_buffer_set_t * buffer_set) {
     if (*buffer_set) {
         delete[] (*buffer_set)->elements;
     }
@@ -1727,37 +1835,68 @@ OM_uint32 gss_release_buffer_set
 }
 
 void print_set(gss_buffer_set_t * buffer_set) {
-	gss_buffer_set_t set = * buffer_set;
-	printf("Count %zu\n", set->count);
-	for (int i = 0; i < set->count; i++) {
-		printf("  #%d: %zu\n ", i, set->elements[i].length);
-		char* vv = (char*)set->elements[i].value;
-		for (int j = 0; j < set->elements[i].length; j++) {
-			printf(" %02x", vv[j]);
-		}
-		printf("\n");
-	}
+    gss_buffer_set_t set = * buffer_set;
+    printf("Count %zu\n", set->count);
+    for (int i = 0; i < set->count; i++) {
+        printf("  #%d: %zu\n ", i, set->elements[i].length);
+        char* vv = (char*)set->elements[i].value;
+        for (int j = 0; j < set->elements[i].length; j++) {
+            printf(" %02x", vv[j]);
+        }
+        printf("\n");
+    }
 }
 
 __declspec(dllexport) OM_uint32 gss_inquire_sec_context_by_oid
-	(OM_uint32 * minor_status,
-	 const gss_ctx_id_t context_handle,
-	 const gss_OID mech,
-	 gss_buffer_set_t * data_set) {
-	if (is_same_oid(mech, &GSS_KRB5_INQ_SSPI_SESSION_KEY_OID)) {
-	    (*data_set)->count = 2;
-	    //data_set->elements[0] = new byte[4];
-	    //data_set->elements[1] = new byte[4];
-	    // memcpy flags
+    (OM_uint32 * minor_status,
+     const gss_ctx_id_t context_handle,
+     const gss_OID desired_object,
+     gss_buffer_set_t * data_set) {
+    SECURITY_STATUS ss;
+    if (is_same_oid(desired_object, &GSS_KRB5_INQ_SSPI_SESSION_KEY_OID)) {
+        (*data_set)->count = 2;
+        (*data_set)->elements = NULL;
+        // data[0] have key bytes
+        // data[1] is OID adding etype (ki.EncryptAlgorithm)
+        SecPkgContext_KeyInfo ki = {0};
+        SECURITY_STATUS ss = QueryContextAttributes(
+            &pc->hCtxt, SECPKG_ATTR_KEY_INFO, &ki);
+        if (ss == SEC_E_OK) {
+            PP("Good %ld - %ld - %ld - %ls - %ls",
+                    ki.KeySize, ki.SignatureAlgorithm, ki.EncryptAlgorithm,
+                    ki.sSignatureAlgorithmName, ki.sEncryptAlgorithmName);
+        }
+        if (ki.sSignatureAlgorithmName) {
+            FreeContextBuffer(ki.sSignatureAlgorithmName);
+        }
+        if (ki.sEncryptAlgorithmName) {
+            FreeContextBuffer(ki.sEncryptAlgorithmName);
+        }
+        SecPkgContext_SessionKey sessionKey = {0};
+        ss = QueryContextAttributes(
+            &pc->hCtxt, SECPKG_ATTR_SESSION_KEY, &sessionKey);
+        if (ss == SEC_E_OK) {
+            dump("SecPkgContext_SessionKey", sessionKey.SessionKey, sessionKey.SessionKeyLength);
+        }
+        if (sessionKey.SessionKey) {
+            FreeContextBuffer(sessionKey.SessionKey);
+        }
         return GSS_S_COMPLETE;
-	} else if (is_same_oid(mech, &GSS_KRB5_GET_TKT_FLAGS_OID)) {
-	    (*data_set)->count = 1;
-	    //data_set->elements[0] = new byte[4];
-	    // memcpy flags
+    } else if (is_same_oid(desired_object, &GSS_KRB5_GET_TKT_FLAGS_OID)) {
+        (*data_set)->count = 1;
+        (*data_set)->elements = NULL;
+        // memcpy flags
+        SecPkgContext_Flags flags = {0};
+        ss = QueryContextAttributes(
+            &pc->hCtxt, SECPKG_ATTR_SERVER_AUTH_FLAGS, &flags);
+        if (ss == SEC_E_OK) {
+            PP("SecPkgContext_Flags %ld", flags.Flags);
+        }
         return GSS_S_COMPLETE;
-	} else if (is_same_oid(mech, &GSS_KRB5_EXTRACT_AUTHZ_DATA_FROM_SEC_CONTEXT_OID)) {
-        return GSS_S_COMPLETE;
-	}
+    } else if (is_same_oid(desired_object, &GSS_KRB5_EXTRACT_AUTHZ_DATA_FROM_SEC_CONTEXT_OID)) {
+        // "AuthzData not available on initiator side."
+        return GSS_S_UNAVAILABLE;
+    }
     return GSS_S_UNAVAILABLE;
 }
 
