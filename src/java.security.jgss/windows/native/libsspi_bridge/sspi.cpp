@@ -1852,7 +1852,7 @@ __declspec(dllexport) OM_uint32 gss_inquire_sec_context_by_oid
      const gss_ctx_id_t context_handle,
      const gss_OID desired_object,
      gss_buffer_set_t * data_set) {
-    SECURITY_STATUS ss;
+//    SECURITY_STATUS ss;
     if (is_same_oid(desired_object, &GSS_KRB5_INQ_SSPI_SESSION_KEY_OID)) {
         (*data_set)->count = 2;
         (*data_set)->elements = NULL;
@@ -1860,7 +1860,7 @@ __declspec(dllexport) OM_uint32 gss_inquire_sec_context_by_oid
         // data[1] is OID adding etype (ki.EncryptAlgorithm)
         SecPkgContext_KeyInfo ki = {0};
         SECURITY_STATUS ss = QueryContextAttributes(
-            &pc->hCtxt, SECPKG_ATTR_KEY_INFO, &ki);
+            (PCtxtHandle)&context_handle->hCtxt, SECPKG_ATTR_KEY_INFO, &ki);
         if (ss == SEC_E_OK) {
             PP("Good %ld - %ld - %ld - %ls - %ls",
                     ki.KeySize, ki.SignatureAlgorithm, ki.EncryptAlgorithm,
@@ -1874,7 +1874,7 @@ __declspec(dllexport) OM_uint32 gss_inquire_sec_context_by_oid
         }
         SecPkgContext_SessionKey sessionKey = {0};
         ss = QueryContextAttributes(
-            &pc->hCtxt, SECPKG_ATTR_SESSION_KEY, &sessionKey);
+            (PCtxtHandle)&context_handle->hCtxt, SECPKG_ATTR_SESSION_KEY, &sessionKey);
         if (ss == SEC_E_OK) {
             dump("SecPkgContext_SessionKey", sessionKey.SessionKey, sessionKey.SessionKeyLength);
         }
@@ -1882,17 +1882,17 @@ __declspec(dllexport) OM_uint32 gss_inquire_sec_context_by_oid
             FreeContextBuffer(sessionKey.SessionKey);
         }
         return GSS_S_COMPLETE;
-    } else if (is_same_oid(desired_object, &GSS_KRB5_GET_TKT_FLAGS_OID)) {
-        (*data_set)->count = 1;
-        (*data_set)->elements = NULL;
-        // memcpy flags
-        SecPkgContext_Flags flags = {0};
-        ss = QueryContextAttributes(
-            &pc->hCtxt, SECPKG_ATTR_SERVER_AUTH_FLAGS, &flags);
-        if (ss == SEC_E_OK) {
-            PP("SecPkgContext_Flags %ld", flags.Flags);
-        }
-        return GSS_S_COMPLETE;
+//    } else if (is_same_oid(desired_object, &GSS_KRB5_GET_TKT_FLAGS_OID)) {
+//        (*data_set)->count = 1;
+//        (*data_set)->elements = NULL;
+//        // memcpy flags
+//        SecPkgContext_Flags flags = {0};
+////        ss = QueryContextAttributes(
+////            (PCtxtHandle)&context_handle->hCtxt, SECPKG_ATTR_SERVER_AUTH_FLAGS, &flags);
+//        if (ss == SEC_E_OK) {
+//            PP("SecPkgContext_Flags %ld", flags.Flags);
+//        }
+//        return GSS_S_COMPLETE;
     } else if (is_same_oid(desired_object, &GSS_KRB5_EXTRACT_AUTHZ_DATA_FROM_SEC_CONTEXT_OID)) {
         // "AuthzData not available on initiator side."
         return GSS_S_UNAVAILABLE;

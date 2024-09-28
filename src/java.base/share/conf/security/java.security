@@ -1547,30 +1547,6 @@ jdk.tls.alpnCharset=ISO_8859_1
 #jdk.security.krb5.s4u2proxy.acceptNonForwardableServiceTicket=false
 
 #
-# Interested Kerberos 5 ad-type values
-#
-# When calling ExtendedGSSContext.inquireSecContext(InquireType.KRB5_GET_AUTHZ_DATA),
-# the result should be an array of AuthorizationDataEntry objects with various
-# ad-type values. In native GSS-API, this information is available through the
-# gss_inquire_sec_context_by_oid function with an OID argument in the form of
-# "1.2.840.113554.1.2.2.5.10.ad-type". To avoid going through all possible ad-type
-# values to get an array output, The caller can define this security property
-# to include ad-type values they are interested in. When the inquireSecContext
-# method is called, ad-type values in this list are guaranteed to be inquired.
-# Users can change the interested list at runtime by calling the
-# AuthorizationDataEntry::setInterestedTypes method.
-#
-# The value of this security property is a comma separated integer list. All
-# whitespaces are ignored.
-#
-# The default value is empty.
-#
-# If a system property of the same name is also specified, it supersedes the
-# security property value defined here.
-#
-jdk.security.krb5.default.interested.ad-type=1,4,5,8,96,97,128,129,143
-
-#
 # Policy for name comparison in keytab and ccache entry lookup
 #
 # When looking up a keytab or credentials cache (ccache) entry for a Kerberos
