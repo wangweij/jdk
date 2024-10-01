@@ -1105,7 +1105,7 @@ gss_init_sec_context(OM_uint32 *minor_status,
             pc->SecPkgContextSizes.cbBlockSize,
             pc->SecPkgContextSizes.cbSecurityTrailer);
 
-    query_status(&pc->hCtxt);
+    //query_status(&pc->hCtxt);
 
     output_token->length = outSecBuff.cbBuffer;
     if (outSecBuff.cbBuffer) {
