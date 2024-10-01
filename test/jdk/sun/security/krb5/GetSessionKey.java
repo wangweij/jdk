@@ -59,6 +59,14 @@ public class GetSessionKey {
 
     public static void main(String[] args) throws Exception {
 
+        if (args.length == 0) {
+            System.out.println("""
+                    Usage:
+                    java GetSessionKey peer
+                    java GetSessionKey peer inf
+                    """);
+            return;
+        }
         System.setProperty("javax.security.auth.useSubjectCredsOnly", "false");
         Security.setProperty("auth.login.defaultCallbackHandler", CB.class.getName());
 
@@ -77,6 +85,13 @@ public class GetSessionKey {
         System.arraycopy(token, 16, nt, token.length - rrc, rrc);
         var ct = Arrays.copyOfRange(nt, 16, nt.length - 12);
 
+        if (args.length > 1) {
+            for (int i = 0; i < Integer.MAX_VALUE; i++) {
+                ((ExtendedGSSContext)ctx)
+                        .inquireSecContext(InquireType.KRB5_GET_SESSION_KEY_EX);
+                if (i % 10000 == 0) System.err.print('*');
+            }
+        }
         var key = (EncryptionKey)(((ExtendedGSSContext)ctx)
                 .inquireSecContext(InquireType.KRB5_GET_SESSION_KEY_EX));
         System.out.println(key.getAlgorithm());
