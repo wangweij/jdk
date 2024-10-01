@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2024, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -36,8 +36,6 @@ import sun.security.jgss.GSSUtil;
 import sun.security.jgss.GSSExceptionImpl;
 import sun.security.jgss.KerberosSessionKey;
 import sun.security.jgss.spi.*;
-import sun.security.krb5.internal.AuthorizationData;
-import sun.security.krb5.internal.AuthorizationDataEntry;
 import sun.security.krb5.internal.KerberosTime;
 import sun.security.util.BitArray;
 import sun.security.util.DerValue;
@@ -47,9 +45,6 @@ import sun.security.jgss.spnego.NegTokenTarg;
 import javax.security.auth.kerberos.DelegationPermission;
 import javax.security.auth.kerberos.EncryptionKey;
 import java.io.*;
-import java.util.ArrayList;
-import java.util.List;
-
 
 /**
  * This class is essentially a wrapper class for the gss_ctx_id_t
@@ -728,31 +723,6 @@ class NativeGSSContext implements GSSContextSpi {
             default -> throw new GSSException(GSSException.UNAVAILABLE, -1,
                     "Inquire type not supported.");
         };
-    }
-
-    public AuthorizationData inquireAuthData(int[] types)
-            throws GSSException {
-        if (isInitiator()) {
-            throw new GSSException(GSSException.UNAVAILABLE, -1,
-                    "AuthzData not available on initiator side.");
-        }
-        List<AuthorizationDataEntry> entries = new ArrayList<>();
-        for (int i : types) {
-            try {
-                byte[][] data = inquireSecContextByOid(new Oid("1.2.840.113554.1.2.2.5.10." + i));
-                if (data != null && data.length >= 1) {
-                    entries.add(new AuthorizationDataEntry(1, data[0]));
-                    throw new GSSException(GSSException.UNAVAILABLE);
-                }
-            } catch (GSSException e) {
-                // ignored
-            }
-        }
-        try {
-            return new AuthorizationData(entries.toArray(new AuthorizationDataEntry[0]));
-        } catch (IOException ioe) {
-            throw new AssertionError("should not happen", ioe);
-        }
     }
 
     public byte[][] inquireSecContextByOid(Oid oid)

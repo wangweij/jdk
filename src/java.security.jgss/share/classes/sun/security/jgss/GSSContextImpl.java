@@ -27,7 +27,6 @@ package sun.security.jgss;
 
 import org.ietf.jgss.*;
 import sun.security.jgss.spi.*;
-import sun.security.krb5.internal.AuthorizationData;
 import sun.security.util.ObjectIdentifier;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -661,13 +660,6 @@ public class GSSContextImpl implements GSSContext {
             throw new GSSException(GSSException.NO_CONTEXT);
         }
         return mechCtxt.inquireSecContext(type);
-    }
-
-    public AuthorizationData inquireAuthData(int[] types) throws GSSException {
-        if (mechCtxt == null) {
-            throw new GSSException(GSSException.NO_CONTEXT);
-        }
-        return mechCtxt.inquireAuthData(types);
     }
 
     public void requestDelegPolicy(boolean state) throws GSSException {

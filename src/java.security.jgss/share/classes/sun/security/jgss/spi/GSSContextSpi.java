@@ -31,8 +31,6 @@
 package sun.security.jgss.spi;
 
 import org.ietf.jgss.*;
-import sun.security.krb5.internal.AuthorizationData;
-
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.security.Provider;
@@ -402,20 +400,8 @@ public interface GSSContextSpi {
      * @param type the type of the attribute requested
      * @return the attribute
      * @throws GSSException see {@link ExtendedGSSContext#inquireSecContext}
-     *          for details
+     * for details
      */
     Object inquireSecContext(String type)
             throws GSSException;
-
-    /**
-     * Returns the authorization data for the requested types
-     * @param types requested types
-     * @return the authorization data
-     * @throws GSSException see {@link ExtendedGSSContext#inquireSecContext}
-     *          for details
-     */
-    default AuthorizationData inquireAuthData(int[] types)
-            throws GSSException {
-        throw new GSSException(GSSException.UNAVAILABLE);
-    }
 }

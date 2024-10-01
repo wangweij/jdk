@@ -34,7 +34,6 @@ import sun.security.action.GetBooleanAction;
 import sun.security.action.GetPropertyAction;
 import sun.security.jgss.*;
 import sun.security.jgss.spi.*;
-import sun.security.krb5.internal.AuthorizationData;
 import sun.security.util.*;
 
 /**
@@ -1238,20 +1237,6 @@ public class SpNegoContext implements GSSContextSpi {
         } else {
             throw new GSSException(GSSException.BAD_MECH, -1,
                     "inquireSecContext not supported by underlying mech.");
-        }
-    }
-
-    public AuthorizationData inquireAuthData(int[] types)
-            throws GSSException {
-        if (mechContext == null) {
-            throw new GSSException(GSSException.NO_CONTEXT, -1,
-                    "Underlying mech not established.");
-        }
-        if (mechContext instanceof GSSContextImpl) {
-            return ((GSSContextImpl)mechContext).inquireAuthData(types);
-        } else {
-            throw new GSSException(GSSException.BAD_MECH, -1,
-                    "inquireAuthData not supported by underlying mech.");
         }
     }
 }

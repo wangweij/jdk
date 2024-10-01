@@ -47,18 +47,19 @@ class ExtendedGSSContextImpl extends GSSContextImpl
             security.checkPermission(
                     new InquireSecContextPermission(type.toString()));
         }
-        if (type == InquireType.KRB5_GET_AUTHZ_DATA) {
-            AuthorizationData ad = inquireAuthData(
-                    AuthorizationDataEntry.interestedTypes);
-            AuthorizationDataEntry[] authzData =
-                    new AuthorizationDataEntry[ad.count()];
-            for (int i = 0; i < ad.count(); i++) {
-                authzData[i] = new AuthorizationDataEntry(
-                        ad.item(i).adType, ad.item(i).adData);
+        Object output = super.inquireSecContext(type.name());
+        if (output != null) {
+            if (type == InquireType.KRB5_GET_AUTHZ_DATA) {
+                AuthorizationData ad = (AuthorizationData) output;
+                AuthorizationDataEntry[] authzData =
+                        new AuthorizationDataEntry[ad.count()];
+                for (int i = 0; i < ad.count(); i++) {
+                    authzData[i] = new AuthorizationDataEntry(
+                            ad.item(i).adType, ad.item(i).adData);
+                }
+                output = authzData;
             }
-            return authzData;
-        } else {
-            return super.inquireSecContext(type.name());
         }
+        return output;
     }
 }

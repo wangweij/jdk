@@ -516,7 +516,6 @@ public class Credentials {
         if (c.serverAlias != null)
             DEBUG.println("\tserver alias: " + c.serverAlias.toString());
         DEBUG.println("\tticket: sname: " + c.ticket.sname.toString());
-        DEBUG.println("\tflags: " + c.flags);
         if (c.startTime != null) {
             DEBUG.println("\tstartTime: " + c.startTime.getTime());
         }

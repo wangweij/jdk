@@ -1393,6 +1393,13 @@ class Krb5Context implements GSSContextSpi {
                         key.getBytes(), key.getEType());
             case "KRB5_GET_TKT_FLAGS":
                 return tktFlags.clone();
+            case "KRB5_GET_AUTHZ_DATA":
+                if (isInitiator()) {
+                    throw new GSSException(GSSException.UNAVAILABLE, -1,
+                            "AuthzData not available on initiator side.");
+                } else {
+                    return authzData;
+                }
             case "KRB5_GET_AUTHTIME":
                 return authTime;
             case "KRB5_GET_KRB_CRED":
@@ -1420,20 +1427,6 @@ class Krb5Context implements GSSContextSpi {
                 "Inquire type not supported.");
     }
 
-    public AuthorizationData inquireAuthData(int[] types)
-            throws GSSException {
-        // Attention: the SPI method returns a value of the internal
-        // class AuthorizationData. The ExtendedGSSContext API will
-        // translate it into a public class AuthorizationDataEntry
-        // that's only defined in the jdk.security.jgss module.
-        if (isInitiator()) {
-            throw new GSSException(GSSException.UNAVAILABLE, -1,
-                    "AuthzData not available on initiator side.");
-        } else {
-            return authzData;
-        }
-    }
-    
     // Helpers for inquireSecContext
     private boolean[] tktFlags;
     private String authTime;

@@ -70,8 +70,7 @@ public enum InquireType {
     /**
      * Attribute type for retrieving the authorization data in the
      * service ticket of an established Kerberos 5 security context.
-     * Only supported on the acceptor side. The return type is an array
-     * of {@link AuthorizationDataEntry}.
+     * Only supported on the acceptor side.
      */
     KRB5_GET_AUTHZ_DATA,
     /**
