@@ -1776,61 +1776,19 @@ gss_release_buffer(OM_uint32 *minor_status,
     return GSS_S_COMPLETE;
 }
 
-OM_uint32
-generic_gss_add_buffer_set_member(OM_uint32 *minor_status,
-                                  const gss_buffer_t member_buffer,
-                                  gss_buffer_set_t *buffer_set)
-{
-    gss_buffer_set_t set;
-    gss_buffer_t p;
-    // OM_uint32 ret;
-
-    if (*buffer_set == GSS_C_NO_BUFFER_SET) {
-        *buffer_set = new gss_buffer_set_desc;
-        if (*buffer_set == GSS_C_NO_BUFFER_SET) {
-            *minor_status = ENOMEM;
-            return GSS_S_FAILURE;
-        }
-        (*buffer_set)->count = 0;
-        (*buffer_set)->elements = NULL;
-    }
-
-    set = *buffer_set;
-    gss_buffer_desc *new_elements = new gss_buffer_desc[set->count + 1];
-    if (new_elements == NULL) {
-        *minor_status = ENOMEM;
-        return GSS_S_FAILURE;
-    }
-    if (set->count > 0) {
-        memcpy(new_elements, set->elements, set->count * sizeof(gss_buffer_desc));
-    }
-    if (set->elements) delete[] set->elements;
-    set->elements = new_elements;
-
-
-    p = &set->elements[set->count];
-
-    p->value = new char[member_buffer->length];
-    if (p->value == NULL) {
-        *minor_status = ENOMEM;
-        return GSS_S_FAILURE;
-    }
-    memcpy(p->value, member_buffer->value, member_buffer->length);
-    p->length = member_buffer->length;
-
-    set->count++;
-
-    *minor_status = 0;
-    return GSS_S_COMPLETE;
-}
-
-OM_uint32 gss_release_buffer_set
-    (OM_uint32 * minor_status,
-     gss_buffer_set_t * buffer_set) {
+OM_uint32 gss_release_buffer_set(OM_uint32 * minor_status,
+                                 gss_buffer_set_t * buffer_set) {
+    PP(">>>> Calling gss_release_buffer_set...");
     if (*buffer_set) {
-        delete[] (*buffer_set)->elements;
+        if ((*buffer_set)->elements) {
+            for (int i = 0; i < (*buffer_set)->count; i++) {
+                gss_release_buffer(minor_status, &((*buffer_set)->elements[i]));
+            }
+            free((*buffer_set)->elements);
+        }
+        free(*buffer_set);
+        *buffer_set = NULL;
     }
-    delete *buffer_set;
     return GSS_S_COMPLETE;
 }
 
@@ -1841,10 +1799,18 @@ void print_set(gss_buffer_set_t * buffer_set) {
         printf("  #%d: %zu\n ", i, set->elements[i].length);
         char* vv = (char*)set->elements[i].value;
         for (int j = 0; j < set->elements[i].length; j++) {
-            printf(" %02x", vv[j]);
+            printf(" %02x", vv[j] & 0xff);
         }
         printf("\n");
     }
+}
+
+void* memdup(const void* src, size_t size) {
+    void* dest = malloc(size);
+    if (dest != NULL) {
+        memcpy(dest, src, size);
+    }
+    return dest;
 }
 
 __declspec(dllexport) OM_uint32 gss_inquire_sec_context_by_oid
@@ -1852,19 +1818,17 @@ __declspec(dllexport) OM_uint32 gss_inquire_sec_context_by_oid
      const gss_ctx_id_t context_handle,
      const gss_OID desired_object,
      gss_buffer_set_t * data_set) {
-//    SECURITY_STATUS ss;
+    PP(">>>> Calling gss_inquire_sec_context_by_oid...");
     if (is_same_oid(desired_object, &GSS_KRB5_INQ_SSPI_SESSION_KEY_OID)) {
-        (*data_set)->count = 2;
-        (*data_set)->elements = NULL;
-        // data[0] have key bytes
-        // data[1] is OID adding etype (ki.EncryptAlgorithm)
-        SecPkgContext_KeyInfo ki = {0};
+        SecPkgContext_KeyInfo ki = {0}; // etype
         SECURITY_STATUS ss = QueryContextAttributes(
             (PCtxtHandle)&context_handle->hCtxt, SECPKG_ATTR_KEY_INFO, &ki);
         if (ss == SEC_E_OK) {
-            PP("Good %ld - %ld - %ld - %ls - %ls",
+            PP("SECPKG_ATTR_KEY_INFO %ld - %ld - %ld - %ls - %ls",
                     ki.KeySize, ki.SignatureAlgorithm, ki.EncryptAlgorithm,
                     ki.sSignatureAlgorithmName, ki.sEncryptAlgorithmName);
+        } else {
+            return GSS_S_FAILURE;
         }
         if (ki.sSignatureAlgorithmName) {
             FreeContextBuffer(ki.sSignatureAlgorithmName);
@@ -1872,30 +1836,47 @@ __declspec(dllexport) OM_uint32 gss_inquire_sec_context_by_oid
         if (ki.sEncryptAlgorithmName) {
             FreeContextBuffer(ki.sEncryptAlgorithmName);
         }
-        SecPkgContext_SessionKey sessionKey = {0};
+        SecPkgContext_SessionKey sessionKey = {0}; // key bytes
         ss = QueryContextAttributes(
             (PCtxtHandle)&context_handle->hCtxt, SECPKG_ATTR_SESSION_KEY, &sessionKey);
         if (ss == SEC_E_OK) {
-            dump("SecPkgContext_SessionKey", sessionKey.SessionKey, sessionKey.SessionKeyLength);
+            PP("SecPkgContext_SessionKey return %ld bytes", sessionKey.SessionKeyLength);
+        } else {
+            return GSS_S_FAILURE;
         }
-        if (sessionKey.SessionKey) {
-            FreeContextBuffer(sessionKey.SessionKey);
+
+        // data[0] have key bytes
+        // data[1] is OID adding etype (ki.EncryptAlgorithm)
+        *data_set = (gss_buffer_set_t)malloc(sizeof(gss_buffer_set_desc));
+        if (*data_set == NULL) {
+            goto err;
         }
+        (*data_set)->count = 2;
+        (*data_set)->elements = (gss_buffer_desc*)malloc(sizeof(gss_buffer_desc) * 2);
+        if ((*data_set)->elements == NULL) {
+            goto err;
+        }
+        (*data_set)->elements[0].length = sessionKey.SessionKeyLength;
+        (*data_set)->elements[0].value = memdup(sessionKey.SessionKey, sessionKey.SessionKeyLength);
+        if ((*data_set)->elements[0].value == NULL) {
+            goto err;
+        }
+        (*data_set)->elements[1].length = 11;
+        // The etype OID has the same length as GSS_KRB5_INQ_SSPI_SESSION_KEY_OID,
+        // except the last 2 bytes are [4, etype].
+        (*data_set)->elements[1].value = (char*)memdup(GSS_KRB5_INQ_SSPI_SESSION_KEY_OID.elements, 11);
+        if ((*data_set)->elements[1].value == NULL) {
+            goto err;
+        }
+        ((char*)(*data_set)->elements[1].value)[9] = 4;
+        ((char*)(*data_set)->elements[1].value)[10] = (char)ki.EncryptAlgorithm;
+
+        FreeContextBuffer(sessionKey.SessionKey);
         return GSS_S_COMPLETE;
-//    } else if (is_same_oid(desired_object, &GSS_KRB5_GET_TKT_FLAGS_OID)) {
-//        (*data_set)->count = 1;
-//        (*data_set)->elements = NULL;
-//        // memcpy flags
-//        SecPkgContext_Flags flags = {0};
-////        ss = QueryContextAttributes(
-////            (PCtxtHandle)&context_handle->hCtxt, SECPKG_ATTR_SERVER_AUTH_FLAGS, &flags);
-//        if (ss == SEC_E_OK) {
-//            PP("SecPkgContext_Flags %ld", flags.Flags);
-//        }
-//        return GSS_S_COMPLETE;
-    } else if (is_same_oid(desired_object, &GSS_KRB5_EXTRACT_AUTHZ_DATA_FROM_SEC_CONTEXT_OID)) {
-        // "AuthzData not available on initiator side."
-        return GSS_S_UNAVAILABLE;
+    err:
+        gss_release_buffer_set(minor_status, data_set);
+        FreeContextBuffer(sessionKey.SessionKey);
+        return GSS_S_FAILURE;
     }
     return GSS_S_UNAVAILABLE;
 }

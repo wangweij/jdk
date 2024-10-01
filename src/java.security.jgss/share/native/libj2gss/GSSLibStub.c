@@ -1193,6 +1193,7 @@ Java_sun_security_jgss_wrapper_GSSLibStub_inquireSecContextByOid(JNIEnv *env,
   }
   oid = newGSSOID(env, joid);
   major = (*ftab->inquireSecContextByOid)(&minor, contextHdl, oid, &result);
+  deleteGSSOID(oid);
   checkStatus(env, jobj, major, minor, "[GSSLibStub_inquireSecContextByOid]");
   if ((*env)->ExceptionCheck(env)) {
     return NULL;
@@ -1205,6 +1206,7 @@ Java_sun_security_jgss_wrapper_GSSLibStub_inquireSecContextByOid(JNIEnv *env,
     for (int i = 0; i < (int)result->count; i++) {
       jbyteArray each = getJavaBuffer(env, &result->elements[i]);
       if ((*env)->ExceptionCheck(env)) {
+        (*ftab->releaseBufferSet)(&minor, &result);
         return NULL;
       }
       (*env)->SetObjectArrayElement(env, jresult, i, each);

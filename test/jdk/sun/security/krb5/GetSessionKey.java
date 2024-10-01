@@ -34,16 +34,33 @@ import sun.security.krb5.internal.crypto.dk.DkCrypto;
 import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
+import javax.security.auth.callback.*;
 import javax.security.auth.kerberos.EncryptionKey;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.security.Security;
 import java.util.Arrays;
 import java.util.HexFormat;
 
 public class GetSessionKey {
 
+    public static class CB implements CallbackHandler {
+        @Override
+        public void handle(Callback[] callbacks) throws IOException, UnsupportedCallbackException {
+            for (var cb : callbacks) {
+                if (cb instanceof NameCallback ncb) {
+                    ncb.setName("Administrator");
+                } else if (cb instanceof PasswordCallback pcb) {
+                    pcb.setPassword(System.getenv("PASSADMIN").toCharArray());
+                }
+            }
+        }
+    }
+
     public static void main(String[] args) throws Exception {
 
         System.setProperty("javax.security.auth.useSubjectCredsOnly", "false");
+        Security.setProperty("auth.login.defaultCallbackHandler", CB.class.getName());
 
         var man = GSSManager.getInstance();
         var name = man.createName(args[0], GSSName.NT_USER_NAME, GSSUtil.GSS_KRB5_MECH_OID);
