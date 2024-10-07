@@ -118,5 +118,8 @@ public class GetSessionKey {
         var pt = cipher.doFinal(ct);
         pt = Arrays.copyOfRange(pt, 16, pt.length - 16);
         System.out.println(new String(pt, StandardCharsets.ISO_8859_1));
+        if (!Arrays.equals(pt, msg)) {
+            throw new RuntimeException("Fail");
+        }
     }
 }
