@@ -41,6 +41,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.Security;
 import java.util.Arrays;
 import java.util.HexFormat;
+import java.util.Locale;
 
 public class GetSessionKey {
 
@@ -49,7 +50,7 @@ public class GetSessionKey {
         public void handle(Callback[] callbacks) throws IOException, UnsupportedCallbackException {
             for (var cb : callbacks) {
                 if (cb instanceof NameCallback ncb) {
-                    ncb.setName("Administrator");
+                    ncb.setName(System.getenv("USER"));
                 } else if (cb instanceof PasswordCallback pcb) {
                     pcb.setPassword(System.getenv("PASSADMIN").toCharArray());
                 }
@@ -59,19 +60,27 @@ public class GetSessionKey {
 
     public static void main(String[] args) throws Exception {
 
-        if (args.length == 0) {
-            System.out.println("""
-                    Usage:
-                    java GetSessionKey peer
-                    java GetSessionKey peer inf
-                    """);
-            return;
-        }
         System.setProperty("javax.security.auth.useSubjectCredsOnly", "false");
         Security.setProperty("auth.login.defaultCallbackHandler", CB.class.getName());
 
+        var peer = "host/"
+                + System.getenv("LOGONSERVER").substring(2).toLowerCase(Locale.ROOT);
+
+        var inf = false;
+        if (args.length > 0) {
+            var pos = 0;
+            if (args[0].equals("-inf")) {
+                inf = true;
+                pos = 1;
+            }
+            if (args.length > pos) {
+                peer = args[pos];
+            }
+        }
+        System.out.println("Connecting to " + peer + "...");
+
         var man = GSSManager.getInstance();
-        var name = man.createName(args[0], GSSName.NT_USER_NAME, GSSUtil.GSS_KRB5_MECH_OID);
+        var name = man.createName(peer, GSSName.NT_USER_NAME, GSSUtil.GSS_KRB5_MECH_OID);
         var ctx = man.createContext(name, null, null, GSSContext.DEFAULT_LIFETIME);
         ctx.requestMutualAuth(false);
         ctx.initSecContext(new byte[0], 0, 0);
@@ -85,7 +94,7 @@ public class GetSessionKey {
         System.arraycopy(token, 16, nt, token.length - rrc, rrc);
         var ct = Arrays.copyOfRange(nt, 16, nt.length - 12);
 
-        if (args.length > 1) {
+        if (inf) {
             for (int i = 0; i < Integer.MAX_VALUE; i++) {
                 ((ExtendedGSSContext)ctx)
                         .inquireSecContext(InquireType.KRB5_GET_SESSION_KEY_EX);
