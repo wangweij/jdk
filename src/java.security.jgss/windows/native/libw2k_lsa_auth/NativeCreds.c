@@ -1013,13 +1013,13 @@ jobject BuildTicket(JNIEnv *env, PUCHAR encodedTicket, ULONG encodedTicketSize) 
 
     (*env)->SetByteArrayRegion(env, ary, (jsize) 0, encodedTicketSize,
                                     (jbyte *)encodedTicket);
-    if ((*env)->ExceptionOccurred(env)) {
+    if ((*env)->ExceptionCheck(env)) {
         (*env)->DeleteLocalRef(env, ary);
         return (jobject) NULL;
     }
 
     ticket = (*env)->NewObject(env, ticketClass, ticketConstructor, ary);
-    if ((*env)->ExceptionOccurred(env)) {
+    if ((*env)->ExceptionCheck(env)) {
         (*env)->DeleteLocalRef(env, ary);
         return (jobject) NULL;
     }
@@ -1129,7 +1129,7 @@ jobject BuildEncryptionKey(JNIEnv *env, PKERB_CRYPTO_KEY cryptoKey) {
     }
     (*env)->SetByteArrayRegion(env, ary, (jsize) 0, cryptoKey->Length,
                                     (jbyte *)cryptoKey->Value);
-    if ((*env)->ExceptionOccurred(env)) {
+    if ((*env)->ExceptionCheck(env)) {
         (*env)->DeleteLocalRef(env, ary);
     } else {
         encryptionKey = (*env)->NewObject(env, encryptionKeyClass,
@@ -1154,7 +1154,7 @@ jobject BuildTicketFlags(JNIEnv *env, PULONG flags) {
     }
     (*env)->SetByteArrayRegion(env, ary, (jsize) 0, sizeof(*flags),
                                     (jbyte *)&nlflags);
-    if ((*env)->ExceptionOccurred(env)) {
+    if ((*env)->ExceptionCheck(env)) {
         (*env)->DeleteLocalRef(env, ary);
     } else {
         ticketFlags = (*env)->NewObject(env, ticketFlagsClass,

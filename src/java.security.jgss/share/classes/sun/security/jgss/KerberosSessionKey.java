@@ -25,8 +25,12 @@
 
 package sun.security.jgss;
 
+import sun.security.jgss.krb5.Krb5Util;
 import sun.security.util.HexDumpEncoder;
 
+import java.io.IOException;
+import java.io.InvalidObjectException;
+import java.io.ObjectInputStream;
 import java.security.Key;
 
 /**
@@ -61,6 +65,21 @@ public class KerberosSessionKey implements Key {
 
     @Override
     public String toString() {
-        return "Kerberos session key: etype: " + etype;
+        return "Kerberos session key: etype=" + etype
+                + ", " + Krb5Util.keyInfo(keyBytes);
+    }
+
+    /**
+     * Restores the state of this object from the stream.
+     *
+     * @param  stream the {@code ObjectInputStream} from which data is read
+     * @throws IOException if an I/O error occurs
+     * @throws ClassNotFoundException if a serialized class cannot be loaded
+     */
+    @java.io.Serial
+    private void readObject(ObjectInputStream stream)
+            throws IOException, ClassNotFoundException {
+        throw new InvalidObjectException
+                ("KerberosSessionKey not directly deserializable");
     }
 }
