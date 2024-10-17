@@ -61,7 +61,7 @@ public final class NativeGSSFactory implements MechanismFactory {
         // If Subject is present but no native creds available
         if (creds != null && creds.isEmpty()) {
             if (GSSUtil.useSubjectCredsOnly(caller)) {
-                throw new GSSException(GSSException.NO_CRED);
+//                throw new GSSException(GSSException.NO_CRED);
             }
         }
 

@@ -37,8 +37,10 @@ import sun.security.util.DerValue;
 import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
+import javax.security.auth.Subject;
 import javax.security.auth.callback.*;
 import javax.security.auth.kerberos.EncryptionKey;
+import javax.security.auth.kerberos.KerberosTicket;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.Security;
@@ -61,9 +63,11 @@ public class GetSessionKey {
         }
     }
 
+    static String other = null;
+
     public static void main(String[] args) throws Exception {
 
-        System.setProperty("javax.security.auth.useSubjectCredsOnly", "false");
+        System.setProperty("javax.security.auth.useSubjectCredsOnly", "true");
         Security.setProperty("auth.login.defaultCallbackHandler", CB.class.getName());
 
         String peer = null;
@@ -91,14 +95,21 @@ public class GetSessionKey {
                 var ctx = (ExtendedGSSContext) man.createContext(name, null, null, GSSContext.DEFAULT_LIFETIME);
                 ctx.requestMutualAuth(false);
                 var init = ctx.initSecContext(new byte[0], 0, 0);
-                var key = (EncryptionKey)ctx.inquireSecContext(InquireType.KRB5_GET_SESSION_KEY_EX);
-                var key2 = (EncryptionKey)ctx
+                var key = (EncryptionKey) ctx.inquireSecContext(InquireType.KRB5_GET_SESSION_KEY_EX);
+                var key2 = (EncryptionKey) ctx
                         .inquireSecContext(InquireType.KRB5_GET_ODBC_SESSION_KEY);
                 if (i % 1000 == 0) System.err.print('*');
             }
         }
+        other = peer;
+        Subject s = new Subject();
+        Subject.callAs(s, GetSessionKey::go);
+        System.out.println(HexFormat.ofDelimiter(":").formatHex(s.getPrivateCredentials(KerberosTicket.class).iterator().next().getSessionKey().getEncoded()));
+    }
+
+    static Void go() throws Exception {
         var man = GSSManager.getInstance();
-        var name = man.createName(peer, GSSName.NT_USER_NAME, GSSUtil.GSS_KRB5_MECH_OID);
+        var name = man.createName(other, GSSName.NT_USER_NAME, GSSUtil.GSS_KRB5_MECH_OID);
         var ctx = (ExtendedGSSContext) man.createContext(name, null, null, GSSContext.DEFAULT_LIFETIME);
 
         ctx.requestMutualAuth(false);
@@ -150,5 +161,7 @@ public class GetSessionKey {
         var apreq = new APReq(Arrays.copyOfRange(init, 2, init.length)); // skip token-id
         var sk = new sun.security.krb5.EncryptionKey(key2.getKeyType(), key2.getEncoded());
         apreq.authenticator.decrypt(sk, KeyUsage.KU_AP_REQ_AUTHENTICATOR);
+
+        return null;
     }
 }

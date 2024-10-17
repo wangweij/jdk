@@ -31,13 +31,14 @@ import org.ietf.jgss.*;
 import java.lang.ref.Cleaner;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.security.Provider;
-import sun.security.jgss.GSSHeader;
-import sun.security.jgss.GSSUtil;
-import sun.security.jgss.GSSExceptionImpl;
-import sun.security.jgss.KerberosSessionKey;
+
+import sun.security.jgss.*;
 import sun.security.jgss.spi.*;
 import sun.security.krb5.Credentials;
+import sun.security.krb5.KrbCred;
 import sun.security.krb5.KrbException;
 import sun.security.krb5.PrincipalName;
 import sun.security.krb5.internal.KerberosTime;
@@ -46,8 +47,11 @@ import sun.security.util.DerValue;
 import sun.security.util.ObjectIdentifier;
 import sun.security.jgss.spnego.NegTokenInit;
 import sun.security.jgss.spnego.NegTokenTarg;
+
+import javax.security.auth.Subject;
 import javax.security.auth.kerberos.DelegationPermission;
 import javax.security.auth.kerberos.EncryptionKey;
+import javax.security.auth.kerberos.KerberosTicket;
 import java.io.*;
 
 /**
@@ -309,6 +313,47 @@ class NativeGSSContext implements GSSContextSpi {
                         (outToken == null ? 0 : outToken.length));
             }
 
+            if ((inToken == null || inToken.length == 0) && GSSUtil.useSubjectCredsOnly(GSSCaller.CALLER_UNKNOWN)) {
+                // first time
+                if (OperatingSystem.isWindows()) {
+                    Object[] nativeCreds = Credentials.queryNativeCreds();
+                    for (int i = 0; i < nativeCreds.length; i++) {
+                        try {
+                            KrbCred cred = new KrbCred((byte[])nativeCreds[i], null);
+                            System.out.println(cred.getDelegatedCreds()[0].getServer());
+                            System.out.println(this.targetName.getKrbName());
+                            for (var c : cred.getDelegatedCreds()) {
+                                if (c.getServer().toString().equals(this.targetName.getKrbName())) {
+                                    @SuppressWarnings("removal")
+                                    final Subject subject =
+                                            AccessController.doPrivilegedWithCombiner(
+                                                    (PrivilegedAction<Subject>) Subject::current);
+                                    if (subject != null &&
+                                            !subject.isReadOnly()) {
+                                        /*
+                                         * Store the service credentials as
+                                         * javax.security.auth.kerberos.KerberosTicket in
+                                         * the Subject. We could wait until the context is
+                                         * successfully established; however it is easier
+                                         * to do it here and there is no harm.
+                                         */
+                                        final KerberosTicket kt =
+                                                sun.security.jgss.krb5.Krb5Util.credsToTicket(c);
+                                        @SuppressWarnings("removal")
+                                        var dummy = AccessController.doPrivileged (
+                                                (PrivilegedAction<Void>) () -> {
+                                                    subject.getPrivateCredentials().add(kt);
+                                                    return null;
+                                                });
+                                    }
+                                }
+                            }
+                        } catch (Exception ke) {
+                            // ignore
+                        }
+                    }
+                }
+            }
             // Only inspect the token when the permission check
             // has not been performed
             if (GSSUtil.isSpNegoMech(cStub.getMech()) && outToken != null) {
@@ -705,14 +750,18 @@ class NativeGSSContext implements GSSContextSpi {
             case "KRB5_GET_ODBC_SESSION_KEY" -> {
                 if (OperatingSystem.isWindows()) {
                     Object[] nativeCreds = Credentials.queryNativeCreds();
-                    for (int i = 0; i < nativeCreds.length; i += 2) {
+                    for (int i = 0; i < nativeCreds.length; i++) {
                         try {
-                            PrincipalName pn = new PrincipalName((String) nativeCreds[i]);
-                            if (pn.toString().equals(this.targetName.getKrbName()) && nativeCreds[i + 1] != null) {
-                                sun.security.krb5.EncryptionKey ek = (sun.security.krb5.EncryptionKey) nativeCreds[i + 1];
-                                yield new EncryptionKey(ek.getBytes(), ek.getEType());
+                            KrbCred cred = new KrbCred((byte[])nativeCreds[i], null);
+                            System.out.println(cred.getDelegatedCreds()[0].getServer());
+                            System.out.println(this.targetName.getKrbName());
+                            for (var c : cred.getDelegatedCreds()) {
+                                if (c.getServer().toString().equals(this.targetName.getKrbName())) {
+                                    sun.security.krb5.EncryptionKey ek = c.getSessionKey();
+                                    yield new EncryptionKey(ek.getBytes(), ek.getEType());
+                                }
                             }
-                        } catch (KrbException ke) {
+                        } catch (Exception ke) {
                             // ignore
                         }
                     }

@@ -679,7 +679,6 @@ JNIEXPORT jobjectArray JNICALL Java_sun_security_krb5_Credentials_queryNativeCre
     ULONG rspSize = 0;
     HANDLE LogonHandle = NULL;
     ULONG PackageId;
-    jobject encryptionKey;
     KERB_EXTERNAL_TICKET *msticket;
     jobjectArray ret;
 
@@ -726,7 +725,7 @@ JNIEXPORT jobjectArray JNICALL Java_sun_security_krb5_Credentials_queryNativeCre
         }
 
         jclass objectClass = (*env)->FindClass(env, "java/lang/Object");
-        ret =  (*env)->NewObjectArray(env, TktCacheResponse->CountOfTickets * 2, objectClass, NULL);
+        ret =  (*env)->NewObjectArray(env, TktCacheResponse->CountOfTickets, objectClass, NULL);
 
 
         for (unsigned int i = 0; i < TktCacheResponse->CountOfTickets; i++) {
@@ -766,22 +765,12 @@ JNIEXPORT jobjectArray JNICALL Java_sun_security_krb5_Credentials_queryNativeCre
 
             // got the native MS Kerberos TGT
             msticket = &(pTicketResponse->Ticket);
-            WCHAR* realm = (WCHAR *) LocalAlloc(LMEM_ZEROINIT,
-                               ((info->ServerName.Length)*sizeof(WCHAR) + sizeof(UNICODE_NULL)));
-            if (realm == NULL) {
-                ThrowOOME(env, "Can't allocate memory for realm");
-                return NULL;
+            jbyteArray byteArray = (*env)->NewByteArray(env, msticket->EncodedTicketSize);
+            if (byteArray != NULL) {
+                (*env)->SetByteArrayRegion(env, byteArray, 0, msticket->EncodedTicketSize,
+                        (jbyte*) msticket->EncodedTicket);
             }
-
-            wcsncpy(realm, info->ServerName.Buffer, info->ServerName.Length/sizeof(WCHAR));
-            ULONG realmLen = (ULONG)wcslen((PWCHAR)realm);
-            (*env)->SetObjectArrayElement(env, ret, 2 * i, (*env)->NewString(env, (PWCHAR)realm, (USHORT)realmLen));
-            LocalFree(realm);
-
-            encryptionKey = BuildEncryptionKey(env, &(msticket->SessionKey));
-            if (encryptionKey != NULL) {
-                (*env)->SetObjectArrayElement(env, ret, 2 * i + 1, encryptionKey);
-            }
+            (*env)->SetObjectArrayElement(env, ret, i, byteArray);
             if (pTicketRequest) {
                 LocalFree(pTicketRequest);
             }
