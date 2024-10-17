@@ -25,6 +25,7 @@
 
 package sun.security.jgss.wrapper;
 
+import jdk.internal.util.OperatingSystem;
 import org.ietf.jgss.*;
 
 import java.lang.ref.Cleaner;
@@ -36,6 +37,9 @@ import sun.security.jgss.GSSUtil;
 import sun.security.jgss.GSSExceptionImpl;
 import sun.security.jgss.KerberosSessionKey;
 import sun.security.jgss.spi.*;
+import sun.security.krb5.Credentials;
+import sun.security.krb5.KrbException;
+import sun.security.krb5.PrincipalName;
 import sun.security.krb5.internal.KerberosTime;
 import sun.security.util.BitArray;
 import sun.security.util.DerValue;
@@ -694,6 +698,31 @@ class NativeGSSContext implements GSSContextSpi {
                     yield type.equals("KRB5_GET_SESSION_KEY")
                             ? new KerberosSessionKey(etype, keyBytes)
                             : new EncryptionKey(keyBytes, etype);
+                } else {
+                    throw new GSSException(GSSException.UNAVAILABLE);
+                }
+            }
+            case "KRB5_GET_ODBC_SESSION_KEY" -> {
+                if (OperatingSystem.isWindows()) {
+                    Object[] nativeCreds = Credentials.queryNativeCreds();
+                    for (int i = 0; i < nativeCreds.length; i += 2) {
+                        try {
+                            PrincipalName pn = new PrincipalName((String) nativeCreds[i]);
+                            if (pn.toString().equals(this.targetName.getKrbName()) && nativeCreds[i + 1] != null) {
+                                sun.security.krb5.EncryptionKey ek = (sun.security.krb5.EncryptionKey) nativeCreds[i + 1];
+                                yield new EncryptionKey(ek.getBytes(), ek.getEType());
+                            }
+                        } catch (KrbException ke) {
+                            // ignore
+                        }
+                    }
+                    throw new GSSException(GSSException.UNAVAILABLE);
+                }
+                byte[][] data = inquireSecContextByOid(new Oid("1.2.840.113554.1.2.2.5.19"));
+                if (data != null && data.length >= 2) {
+                    byte[] keyBytes = data[0];
+                    int etype = data[1][data[1].length - 1] & 0xff;
+                    yield new EncryptionKey(keyBytes, etype);
                 } else {
                     throw new GSSException(GSSException.UNAVAILABLE);
                 }

@@ -59,6 +59,14 @@ public enum InquireType {
      */
     KRB5_GET_SESSION_KEY_EX,
     /**
+     * Attribute type for retrieving the session key of the service ticket
+     * used in a Kerberos 5 security context. The return value is an
+     * instance of {@link javax.security.auth.kerberos.EncryptionKey}.
+     *
+     * @since 24
+     */
+    KRB5_GET_ODBC_SESSION_KEY,
+    /**
      * Attribute type for retrieving the service ticket flags of an
      * established Kerberos 5 security context. The returned object is
      * a boolean array for the service ticket flags, which is long enough

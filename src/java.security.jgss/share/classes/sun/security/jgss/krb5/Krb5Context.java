@@ -1391,6 +1391,10 @@ class Krb5Context implements GSSContextSpi {
             case "KRB5_GET_SESSION_KEY_EX":
                 return new javax.security.auth.kerberos.EncryptionKey(
                         key.getBytes(), key.getEType());
+            case "KRB5_GET_ODBC_SESSION_KEY":
+                return new javax.security.auth.kerberos.EncryptionKey(
+                        serviceCreds.getSessionKey().getBytes(),
+                        serviceCreds.getSessionKey().getEType());
             case "KRB5_GET_TKT_FLAGS":
                 return tktFlags.clone();
             case "KRB5_GET_AUTHZ_DATA":
