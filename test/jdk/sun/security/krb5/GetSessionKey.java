@@ -70,8 +70,9 @@ public class GetSessionKey {
         System.out.println("isNative: " + isNative);
 
         Subject s = krb5login();
-        System.out.println(HexFormat.ofDelimiter(":").formatHex(
-                Subject.callAs(s, GetSessionKey::go)));
+        if (Subject.callAs(s, GetSessionKey::go) == null) {
+            throw new RuntimeException("Failed");
+        }
     }
 
     static byte[] go() throws Exception {
@@ -87,11 +88,10 @@ public class GetSessionKey {
         // the authenticator inside AP-REQ
         for (var t : Subject.current().getPrivateCredentials(KerberosTicket.class)) {
             System.out.println("found tkt for " + t.getServer());
+            var key = (EncryptionKey) t.getSessionKey();
+            System.out.println(key.getAlgorithm());
+            System.out.println(HexFormat.ofDelimiter(":").formatHex(key.getEncoded()));
             if (t.getServer().getName().startsWith(peer)) {
-                var key = (EncryptionKey) t.getSessionKey();
-                System.out.println(key.getAlgorithm());
-                System.out.println(HexFormat.ofDelimiter(":").formatHex(key.getEncoded()));
-
                 // Per RFC 1964 1.1, init token is a SEQUENCE of an OID followed by
                 // an innerContextToken, consisting of a two-byte token-id and AP-REQ.
                 var der = new DerValue(init).data(); // the content of SEQUENCE
