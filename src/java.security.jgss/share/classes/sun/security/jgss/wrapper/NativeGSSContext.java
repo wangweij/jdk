@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2024, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,20 +25,27 @@
 
 package sun.security.jgss.wrapper;
 
+import jdk.internal.util.OperatingSystem;
 import org.ietf.jgss.*;
+
 import java.lang.ref.Cleaner;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.security.Provider;
-import sun.security.jgss.GSSHeader;
-import sun.security.jgss.GSSUtil;
-import sun.security.jgss.GSSExceptionImpl;
+
+import sun.security.jgss.*;
 import sun.security.jgss.spi.*;
+import sun.security.krb5.Credentials;
+import sun.security.krb5.KrbCred;
 import sun.security.util.DerValue;
 import sun.security.util.ObjectIdentifier;
 import sun.security.jgss.spnego.NegTokenInit;
 import sun.security.jgss.spnego.NegTokenTarg;
-import javax.security.auth.kerberos.DelegationPermission;
-import java.io.*;
 
+import javax.security.auth.Subject;
+import javax.security.auth.kerberos.DelegationPermission;
+import javax.security.auth.kerberos.KerberosTicket;
+import java.io.*;
 
 /**
  * This class is essentially a wrapper class for the gss_ctx_id_t
@@ -299,6 +306,47 @@ class NativeGSSContext implements GSSContextSpi {
                         (outToken == null ? 0 : outToken.length));
             }
 
+            if (OperatingSystem.isWindows()) {
+                if ((inToken == null || inToken.length == 0)
+                        && GSSUtil.useSubjectCredsOnly(GSSCaller.CALLER_UNKNOWN)) {
+                    Object[] nativeCreds = Credentials.queryNativeCreds();
+                    for (int i = 0; i < nativeCreds.length; i++) {
+                        try {
+                            KrbCred cred = new KrbCred((byte[])nativeCreds[i], null);
+                            System.out.println(cred.getDelegatedCreds()[0].getServer());
+                            System.out.println(this.targetName.getKrbName());
+                            for (var c : cred.getDelegatedCreds()) {
+                                if (c.getServer().toString().equals(this.targetName.getKrbName())) {
+                                    @SuppressWarnings("removal")
+                                    final Subject subject =
+                                            AccessController.doPrivilegedWithCombiner(
+                                                    (PrivilegedAction<Subject>) Subject::current);
+                                    if (subject != null &&
+                                            !subject.isReadOnly()) {
+                                        /*
+                                         * Store the service credentials as
+                                         * javax.security.auth.kerberos.KerberosTicket in
+                                         * the Subject. We could wait until the context is
+                                         * successfully established; however it is easier
+                                         * to do it here and there is no harm.
+                                         */
+                                        final KerberosTicket kt =
+                                                sun.security.jgss.krb5.Krb5Util.credsToTicket(c);
+                                        @SuppressWarnings("removal")
+                                        var dummy = AccessController.doPrivileged (
+                                                (PrivilegedAction<Void>) () -> {
+                                                    subject.getPrivateCredentials().add(kt);
+                                                    return null;
+                                                });
+                                    }
+                                }
+                            }
+                        } catch (Exception ke) {
+                            // ignore
+                        }
+                    }
+                }
+            }
             // Only inspect the token when the permission check
             // has not been performed
             if (GSSUtil.isSpNegoMech(cStub.getMech()) && outToken != null) {

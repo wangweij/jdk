@@ -58,13 +58,6 @@ public final class NativeGSSFactory implements MechanismFactory {
         Vector<GSSCredElement> creds = GSSUtil.searchSubject
             (name, mech, initiate, GSSCredElement.class);
 
-        // If Subject is present but no native creds available
-        if (creds != null && creds.isEmpty()) {
-            if (GSSUtil.useSubjectCredsOnly(caller)) {
-                throw new GSSException(GSSException.NO_CRED);
-            }
-        }
-
         GSSCredElement result = ((creds == null || creds.isEmpty()) ?
                                  null : creds.firstElement());
         // Force permission check before returning the cred to caller

@@ -59,6 +59,7 @@ jclass encryptionKeyClass = NULL;
 jclass ticketFlagsClass = NULL;
 jclass kerberosTimeClass = NULL;
 jclass javaLangStringClass = NULL;
+jclass javaLangObjectClass = NULL;
 
 jmethodID ticketConstructor = 0;
 jmethodID principalNameConstructor = 0;
@@ -236,6 +237,24 @@ JNIEXPORT jint JNICALL DEF_JNI_OnLoad(
 
     javaLangStringClass = (*env)->NewWeakGlobalRef(env,cls);
     if (javaLangStringClass == NULL) {
+        return JNI_ERR;
+    }
+    if (native_debug) {
+        fprintf(stderr, "LSA: Made NewWeakGlobalRef\n");
+    }
+
+    cls = (*env)->FindClass(env,"java/lang/Object");
+
+    if (cls == NULL) {
+        fprintf(stderr, "LSA: Couldn't find Object\n");
+        return JNI_ERR;
+    }
+    if (native_debug) {
+        fprintf(stderr, "LSA: Found Object\n");
+    }
+
+    javaLangObjectClass = (*env)->NewWeakGlobalRef(env,cls);
+    if (javaLangObjectClass == NULL) {
         return JNI_ERR;
     }
     if (native_debug) {
@@ -662,6 +681,138 @@ JNIEXPORT jobject JNICALL Java_sun_security_krb5_Credentials_acquireDefaultNativ
     }
 
     return krbCreds;
+}
+
+JNIEXPORT jobjectArray JNICALL Java_sun_security_krb5_Credentials_queryNativeCredsInternal(
+        JNIEnv *env,
+        jclass krbcredsClass) {
+
+    KERB_QUERY_TKT_CACHE_REQUEST CacheRequest;
+    PKERB_QUERY_TKT_CACHE_RESPONSE TktCacheResponse = NULL;
+    PKERB_RETRIEVE_TKT_REQUEST pTicketRequest = NULL;
+    PKERB_RETRIEVE_TKT_RESPONSE pTicketResponse = NULL;
+
+    NTSTATUS Status, SubStatus;
+    ULONG requestSize = 0;
+    ULONG responseSize = 0;
+    ULONG rspSize = 0;
+    HANDLE LogonHandle = NULL;
+    ULONG PackageId;
+    jobjectArray ret = NULL;
+
+    while (TRUE) {
+
+        //
+        // Get the logon handle and package ID from the
+        // Kerberos package
+        //
+        if (!PackageConnectLookup(&LogonHandle, &PackageId))
+            break;
+
+        if (native_debug) {
+            fprintf(stderr, "LSA: Got handle to Kerberos package\n");
+        }
+
+        // List all tickets in cache
+        CacheRequest.MessageType = KerbQueryTicketCacheMessage;
+        CacheRequest.LogonId.LowPart = 0;
+        CacheRequest.LogonId.HighPart = 0;
+
+        Status = LsaCallAuthenticationPackage(
+                        LogonHandle,
+                        PackageId,
+                        &CacheRequest,
+                        sizeof(CacheRequest),
+                        &TktCacheResponse,
+                        &rspSize,
+                        &SubStatus
+                        );
+
+        if (!LSA_SUCCESS(Status) || !LSA_SUCCESS(SubStatus)) {
+            if (!LSA_SUCCESS(Status)) {
+                ShowNTError("LsaCallAuthenticationPackage", Status);
+            } else {
+                ShowNTError("Protocol status", SubStatus);
+            }
+            break;
+        }
+
+        if (native_debug) {
+            fprintf(stderr, "LSA: ticket count is %d\n", TktCacheResponse->CountOfTickets);
+        }
+
+        ret =  (*env)->NewObjectArray(env, TktCacheResponse->CountOfTickets,
+                javaLangObjectClass, NULL);
+        if (ret == NULL) {
+            if (native_debug) {
+                fprintf(stderr, "LSA: Can't allocate Object array for output\n");
+            }
+            break;
+        }
+
+        for (unsigned int i = 0; i < TktCacheResponse->CountOfTickets; i++) {
+            KERB_TICKET_CACHE_INFO* info = &(TktCacheResponse->Tickets[i]);
+            if (native_debug) {
+                fprintf(stderr, "Server: %wZ\n", info->ServerName);
+            }
+            requestSize = sizeof (*pTicketRequest) + info->ServerName.Length;
+            pTicketRequest = (PKERB_RETRIEVE_TKT_REQUEST)
+                                LocalAlloc(LMEM_ZEROINIT, requestSize);
+            if (!pTicketRequest) {
+                if (native_debug) {
+                    fprintf(stderr, "Cannot allocate pTicketRequest\n");
+                }
+                continue;
+            }
+            pTicketRequest->TargetName.Length = info->ServerName.Length;
+            pTicketRequest->TargetName.MaximumLength = info->ServerName.Length;
+            pTicketRequest->TargetName.Buffer = (PWSTR) (pTicketRequest + 1);
+            memcpy((PBYTE) pTicketRequest->TargetName.Buffer,
+                    info->ServerName.Buffer, info->ServerName.Length);
+
+            pTicketRequest->MessageType = KerbRetrieveEncodedTicketMessage;
+            pTicketRequest->CacheOptions = KERB_RETRIEVE_TICKET_AS_KERB_CRED;
+
+            Status = LsaCallAuthenticationPackage(
+                        LogonHandle,
+                        PackageId,
+                        pTicketRequest,
+                        requestSize,
+                        &pTicketResponse,
+                        &responseSize,
+                        &SubStatus
+                        );
+
+            if (!LSA_SUCCESS(Status) || !LSA_SUCCESS(SubStatus)) {
+                if (!LSA_SUCCESS(Status)) {
+                    ShowNTError("LsaCallAuthenticationPackage", Status);
+                } else {
+                    ShowNTError("Protocol status", SubStatus);
+                }
+                LocalFree(pTicketRequest);
+                continue;
+            }
+
+            jbyteArray byteArray = (*env)->NewByteArray(
+            env, pTicketResponse->Ticket.EncodedTicketSize);
+            if (byteArray != NULL) {
+                (*env)->SetByteArrayRegion(env, byteArray, 0,
+                        pTicketResponse->Ticket.EncodedTicketSize,
+                        (jbyte*) pTicketResponse->Ticket.EncodedTicket);
+                (*env)->SetObjectArrayElement(env, ret, i, byteArray);
+            }
+            LocalFree(pTicketRequest);
+            LsaFreeReturnBuffer(pTicketResponse);
+        }
+        break;
+    } // end of WHILE. This WHILE will never loop.
+
+    // clean up resources
+    if (TktCacheResponse != NULL) {
+        LsaFreeReturnBuffer(TktCacheResponse);
+    }
+
+    return ret;
 }
 
 static NTSTATUS

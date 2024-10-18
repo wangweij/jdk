@@ -83,6 +83,23 @@ public class Credentials {
 
     // Read native ticket with session key type in the given list
     private static native Credentials acquireDefaultNativeCreds(int[] eTypes);
+    private static native Object[] queryNativeCredsInternal();
+
+    public static Object[] queryNativeCreds() {
+        if (!alreadyTried) {
+            // See if there's any native code to load
+            try {
+                ensureLoaded();
+            } catch (Exception e) {
+                if (DEBUG != null) {
+                    DEBUG.println("Can not load native ccache library");
+                    e.printStackTrace();
+                }
+                alreadyTried = true;
+            }
+        }
+        return queryNativeCredsInternal();
+    }
 
     public Credentials(Ticket new_ticket,
                        PrincipalName new_client,
