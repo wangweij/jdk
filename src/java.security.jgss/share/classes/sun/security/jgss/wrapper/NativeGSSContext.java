@@ -309,36 +309,30 @@ class NativeGSSContext implements GSSContextSpi {
             if (OperatingSystem.isWindows()) {
                 if ((inToken == null || inToken.length == 0)
                         && GSSUtil.useSubjectCredsOnly(GSSCaller.CALLER_UNKNOWN)) {
-                    Object[] nativeCreds = Credentials.queryNativeCreds();
-                    for (int i = 0; i < nativeCreds.length; i++) {
+                    String kname = targetName.getKrbName();
+                    for (Credentials nc : Credentials.queryNativeCreds()) {
                         try {
-                            KrbCred cred = new KrbCred((byte[])nativeCreds[i], null);
-                            System.out.println(cred.getDelegatedCreds()[0].getServer());
-                            System.out.println(this.targetName.getKrbName());
-                            for (var c : cred.getDelegatedCreds()) {
-                                if (c.getServer().toString().equals(this.targetName.getKrbName())) {
+                            if (nc.getServer().toString().equals(kname)) {
+                                @SuppressWarnings("removal") final Subject subject =
+                                        AccessController.doPrivilegedWithCombiner(
+                                                (PrivilegedAction<Subject>) Subject::current);
+                                if (subject != null &&
+                                        !subject.isReadOnly()) {
+                                    /*
+                                     * Store the service credentials as
+                                     * javax.security.auth.kerberos.KerberosTicket in
+                                     * the Subject. We could wait until the context is
+                                     * successfully established; however it is easier
+                                     * to do it here and there is no harm.
+                                     */
+                                    final KerberosTicket kt =
+                                            sun.security.jgss.krb5.Krb5Util.credsToTicket(nc);
                                     @SuppressWarnings("removal")
-                                    final Subject subject =
-                                            AccessController.doPrivilegedWithCombiner(
-                                                    (PrivilegedAction<Subject>) Subject::current);
-                                    if (subject != null &&
-                                            !subject.isReadOnly()) {
-                                        /*
-                                         * Store the service credentials as
-                                         * javax.security.auth.kerberos.KerberosTicket in
-                                         * the Subject. We could wait until the context is
-                                         * successfully established; however it is easier
-                                         * to do it here and there is no harm.
-                                         */
-                                        final KerberosTicket kt =
-                                                sun.security.jgss.krb5.Krb5Util.credsToTicket(c);
-                                        @SuppressWarnings("removal")
-                                        var dummy = AccessController.doPrivileged (
-                                                (PrivilegedAction<Void>) () -> {
-                                                    subject.getPrivateCredentials().add(kt);
-                                                    return null;
-                                                });
-                                    }
+                                    var dummy = AccessController.doPrivileged(
+                                            (PrivilegedAction<Void>) () -> {
+                                                subject.getPrivateCredentials().add(kt);
+                                                return null;
+                                            });
                                 }
                             }
                         } catch (Exception ke) {

@@ -38,8 +38,10 @@ import sun.security.krb5.internal.crypto.EType;
 import sun.security.util.SecurityProperties;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Date;
 import java.net.InetAddress;
+import java.util.List;
 
 import static sun.security.krb5.internal.Krb5.DEBUG;
 
@@ -83,9 +85,12 @@ public class Credentials {
 
     // Read native ticket with session key type in the given list
     private static native Credentials acquireDefaultNativeCreds(int[] eTypes);
+    // Read native cached tickets as an array of KRB_CRED bytes.
+    // Only implemented on Windows.
     private static native Object[] queryNativeCredsInternal();
 
-    public static Object[] queryNativeCreds() {
+    // Returns an array of bytes
+    public static List<Credentials> queryNativeCreds() {
         if (!alreadyTried) {
             // See if there's any native code to load
             try {
@@ -98,7 +103,23 @@ public class Credentials {
                 alreadyTried = true;
             }
         }
-        return queryNativeCredsInternal();
+        List<Credentials> result = new ArrayList<>();
+        Object[] ncreds = queryNativeCredsInternal();
+        if (ncreds != null) {
+            for (Object obj : ncreds) {
+                if (obj instanceof byte[] bb) {
+                    try {
+                        KrbCred cred = new KrbCred(bb, null);
+                        for (Credentials c : cred.getDelegatedCreds()) {
+                            result.add(c);
+                        }
+                    } catch (Exception e) {
+                        // ignore this
+                    }
+                }
+            }
+        }
+        return result;
     }
 
     public Credentials(Ticket new_ticket,

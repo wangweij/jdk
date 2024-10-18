@@ -753,14 +753,14 @@ JNIEXPORT jobjectArray JNICALL Java_sun_security_krb5_Credentials_queryNativeCre
         for (unsigned int i = 0; i < TktCacheResponse->CountOfTickets; i++) {
             KERB_TICKET_CACHE_INFO* info = &(TktCacheResponse->Tickets[i]);
             if (native_debug) {
-                fprintf(stderr, "Server: %wZ\n", info->ServerName);
+                fprintf(stderr, "LSA: Server: %wZ\n", info->ServerName);
             }
             requestSize = sizeof (*pTicketRequest) + info->ServerName.Length;
             pTicketRequest = (PKERB_RETRIEVE_TKT_REQUEST)
                                 LocalAlloc(LMEM_ZEROINIT, requestSize);
             if (!pTicketRequest) {
                 if (native_debug) {
-                    fprintf(stderr, "Cannot allocate pTicketRequest\n");
+                    fprintf(stderr, "LSA: Cannot allocate pTicketRequest\n");
                 }
                 continue;
             }
