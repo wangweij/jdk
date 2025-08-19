@@ -26,14 +26,26 @@
 package sun.security.util;
 
 import java.io.*;
+import java.lang.foreign.Arena;
+import java.lang.foreign.FunctionDescriptor;
+import java.lang.foreign.Linker;
+import java.lang.foreign.SymbolLookup;
+import java.lang.invoke.MethodHandle;
 import java.nio.*;
 import java.nio.charset.*;
 import java.util.Arrays;
 import jdk.internal.access.SharedSecrets;
+import jdk.internal.io.JdkConsole;
+import jdk.internal.io.JdkConsoleImpl;
+import jdk.internal.io.JdkConsoleProviderImpl;
+import jdk.internal.util.OperatingSystem;
+import jdk.internal.util.StaticProperty;
+import sun.nio.cs.UTF_8;
+
+import static java.lang.foreign.ValueLayout.JAVA_INT;
 
 /**
  * A utility class for reading passwords
- *
  */
 public class Password {
     /** Reads user password from given input stream. */
@@ -53,17 +65,16 @@ public class Password {
 
         try {
             // Only use Console if `in` is the initial System.in
-            Console con;
             if (!isEchoOn &&
                     in == SharedSecrets.getJavaLangAccess().initialSystemIn() &&
-                    ((con = System.console()) != null)) {
-                consoleEntered = con.readPassword();
+                    ConsoleHolder.consoleIsAvailable()) {
+                consoleEntered = ConsoleHolder.readPassword();
                 // readPassword returns "" if you just press ENTER with the built-in Console,
                 // to be compatible with old Password class, change to null
                 if (consoleEntered == null || consoleEntered.length == 0) {
                     return null;
                 }
-                consoleBytes = convertToBytes(consoleEntered);
+                consoleBytes = ConsoleHolder.convertToBytes(consoleEntered);
                 in = new ByteArrayInputStream(consoleBytes);
             }
 
@@ -131,32 +142,114 @@ public class Password {
         }
     }
 
-    /**
-     * Change a password read from Console.readPassword() into
-     * its original bytes.
-     *
-     * @param pass a char[]
-     * @return its byte[] format, similar to new String(pass).getBytes()
-     */
-    private static byte[] convertToBytes(char[] pass) {
-        if (enc == null) {
-            synchronized (Password.class) {
-                enc = System.console()
-                        .charset()
-                        .newEncoder()
-                        .onMalformedInput(CodingErrorAction.REPLACE)
-                        .onUnmappableCharacter(CodingErrorAction.REPLACE);
+    // Everything about Console or JdkConsole is inside this class.
+    private static class ConsoleHolder {
+
+        // primary console; may be null
+        private static final Console c1;
+        // secondary console (when stdout is redirected); may be null
+        private static final JdkConsoleImpl c2;
+        // encoder for c1 or c2
+        private static final CharsetEncoder enc;
+
+        static {
+            c1 = System.console();
+            Charset charset;
+            if (c1 != null) {
+                c2 = null;
+                charset = c1.charset();
+            } else if (isStdinTTY()) {
+                Charset stdinCharset =
+                        Charset.forName(StaticProperty.stdinEncoding(), UTF_8.INSTANCE);
+                Charset stdoutCharset =
+                        Charset.forName(StaticProperty.stdoutEncoding(), UTF_8.INSTANCE);
+                c2 = (JdkConsoleImpl) new JdkConsoleProviderImpl().console(true, stdinCharset, stdoutCharset);
+                charset = stdinCharset;
+            } else {
+                c2 = null;
+                charset = null;
+            }
+            enc = charset == null ? null : charset.newEncoder()
+                    .onMalformedInput(CodingErrorAction.REPLACE)
+                    .onUnmappableCharacter(CodingErrorAction.REPLACE);
+        }
+
+        public static boolean consoleIsAvailable() {
+            return c1 != null || c2 != null;
+        }
+
+        public static char[] readPassword() {
+            assert consoleIsAvailable();
+            if (c1 != null) {
+                return c1.readPassword();
+            } else {
+                try {
+                    return c2.readPasswordNoNewLine();
+                } finally {
+                    System.err.println();
+                }
             }
         }
-        byte[] ba = new byte[(int)(enc.maxBytesPerChar() * pass.length)];
-        ByteBuffer bb = ByteBuffer.wrap(ba);
-        synchronized (enc) {
-            enc.reset().encode(CharBuffer.wrap(pass), bb, true);
+
+        private static boolean isStdinTTY() {
+            return OperatingSystem.isWindows()
+                    ? isWindowsStdinTTY() : isUnixStdinTTY();
         }
-        if (bb.position() < ba.length) {
-            ba[bb.position()] = '\n';
+
+        @SuppressWarnings("restricted")
+        private static boolean isUnixStdinTTY() {
+            try {
+                Linker linker = Linker.nativeLinker();
+                SymbolLookup stdlib = linker.defaultLookup();
+                MethodHandle isatty = linker.downcallHandle(
+                        stdlib.find("isatty").get(),
+                        FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+                return (int) isatty.invokeExact(0) != 0;
+            } catch (Throwable t) {
+                return false;
+            }
         }
-        return ba;
+
+        @SuppressWarnings("restricted")
+        private static boolean isWindowsStdinTTY() {
+            try {
+                Linker linker = Linker.nativeLinker();
+                SymbolLookup lookup = SymbolLookup.libraryLookup("Kernel32", Arena.global());
+                MethodHandle getStdHandle = linker.downcallHandle(
+                        lookup.find("GetStdHandle").orElseThrow(),
+                        FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+                MethodHandle getFileType = linker.downcallHandle(
+                        lookup.find("GetFileType").orElseThrow(),
+                        FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+                int hStdIn = (int)
+                        getStdHandle.invoke(-10); // STD_INPUT_HANDLE
+                if (hStdIn == -1) { // INVALID_HANDLE_VALUE
+                    return false;
+                }
+                return (int) getFileType.invoke(hStdIn) == 2; // FILE_TYPE_CHAR;
+            } catch (Throwable e) {
+                return false;
+            }
+        }
+
+        /**
+         * Change a password read from Console.readPassword() into
+         * its original bytes.
+         *
+         * @param pass a char[]
+         * @return its byte[] format, similar to new String(pass).getBytes()
+         */
+        public static byte[] convertToBytes(char[] pass) {
+            assert consoleIsAvailable();
+            byte[] ba = new byte[(int) (enc.maxBytesPerChar() * pass.length)];
+            ByteBuffer bb = ByteBuffer.wrap(ba);
+            synchronized (enc) {
+                enc.reset().encode(CharBuffer.wrap(pass), bb, true);
+            }
+            if (bb.position() < ba.length) {
+                ba[bb.position()] = '\n';
+            }
+            return ba;
+        }
     }
-    private static volatile CharsetEncoder enc;
 }

@@ -103,6 +103,10 @@ public final class JdkConsoleImpl implements JdkConsole {
 
     @Override
     public char[] readPassword(Locale locale, String format, Object ... args) {
+        return readPassword0(true, locale, format, args);
+    }
+
+    private char[] readPassword0(boolean newLine, Locale locale, String format, Object ... args) {
         char[] passwd = null;
         synchronized (writeLock) {
             synchronized(readLock) {
@@ -146,10 +150,18 @@ public final class JdkConsoleImpl implements JdkConsole {
                         throw ioe;
                     }
                 }
-                pw.println();
+                if (newLine) {
+                    pw.println();
+                }
             }
         }
         return passwd;
+    }
+
+    // A copy of readPassword(...) without any prompt and does not print out
+    // the newline at the end. Used by sun.security.util.Password.
+    public char[] readPasswordNoNewLine() {
+        return readPassword0(false, Locale.getDefault(Locale.Category.FORMAT), "");
     }
 
     private void installShutdownHook() {
