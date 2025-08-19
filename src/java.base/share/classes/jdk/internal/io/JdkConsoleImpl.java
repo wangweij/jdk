@@ -158,8 +158,8 @@ public final class JdkConsoleImpl implements JdkConsole {
         return passwd;
     }
 
-    // A copy of readPassword(...) without any prompt and does not print out
-    // the newline at the end. Used by sun.security.util.Password.
+    // A special readPassword() with no prompt and does not print out a newline
+    // at the end. Caller is restricted only to sun.security.util.Password.
     public char[] readPasswordNoNewLine() {
         return readPassword0(false, Locale.getDefault(Locale.Category.FORMAT), "");
     }

@@ -60,7 +60,8 @@ public class JdkConsoleProviderImpl implements JdkConsoleProvider {
 
         public LazyDelegatingJdkConsoleImpl(Charset inCharset, Charset outCharset) {
             this.outCharset = outCharset;
-            this.delegate = new jdk.internal.io.JdkConsoleImpl(inCharset, outCharset);
+            this.delegate = new jdk.internal.io.JdkConsoleProviderImpl()
+                    .console(true, inCharset, outCharset);
         }
 
         @Override
