@@ -723,9 +723,9 @@ public final class PassFailJFrame {
         HTMLEditorKit kit = (HTMLEditorKit) text.getEditorKit();
         StyleSheet styles = kit.getStyleSheet();
         // Reduce the list default margins
-        styles.addRule("ol, ul { margin-left-ltr: 30; margin-left-rtl: 30 }");
+        styles.addRule("ol, ul, pre { margin-left-ltr: 30; margin-left-rtl: 30 }");
         // Make the size of code (and other elements) the same as other text
-        styles.addRule("code, kbd, samp, pre { font-size: inherit }");
+        styles.addRule("code, kbd, samp, pre { font-size: inherit; background: #DDD; }");
 
         return text;
     }

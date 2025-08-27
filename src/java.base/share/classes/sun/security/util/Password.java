@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -26,23 +26,12 @@
 package sun.security.util;
 
 import java.io.*;
-import java.lang.foreign.Arena;
-import java.lang.foreign.FunctionDescriptor;
-import java.lang.foreign.Linker;
-import java.lang.foreign.SymbolLookup;
-import java.lang.invoke.MethodHandle;
 import java.nio.*;
 import java.nio.charset.*;
 import java.util.Arrays;
-import jdk.internal.access.SharedSecrets;
-import jdk.internal.io.JdkConsole;
-import jdk.internal.io.JdkConsoleImpl;
-import jdk.internal.io.JdkConsoleProviderImpl;
-import jdk.internal.util.OperatingSystem;
-import jdk.internal.util.StaticProperty;
-import sun.nio.cs.UTF_8;
 
-import static java.lang.foreign.ValueLayout.JAVA_INT;
+import jdk.internal.access.SharedSecrets;
+import jdk.internal.io.JdkConsoleImpl;
 
 /**
  * A utility class for reading passwords
@@ -158,16 +147,15 @@ public class Password {
             if (c1 != null) {
                 c2 = null;
                 charset = c1.charset();
-            } else if (isStdinTTY()) {
-                Charset stdinCharset =
-                        Charset.forName(StaticProperty.stdinEncoding(), UTF_8.INSTANCE);
-                Charset stdoutCharset =
-                        Charset.forName(StaticProperty.stdoutEncoding(), UTF_8.INSTANCE);
-                c2 = (JdkConsoleImpl) new JdkConsoleProviderImpl().console(true, stdinCharset, stdoutCharset);
-                charset = stdinCharset;
             } else {
-                c2 = null;
-                charset = null;
+                var opt = JdkConsoleImpl.passwordConsole();
+                if (opt.isPresent()) {
+                    c2 = opt.get();
+                    charset = c2.charset();
+                } else {
+                    c2 = null;
+                    charset = null;
+                }
             }
             enc = charset == null ? null : charset.newEncoder()
                     .onMalformedInput(CodingErrorAction.REPLACE)
@@ -188,47 +176,6 @@ public class Password {
                 } finally {
                     System.err.println();
                 }
-            }
-        }
-
-        private static boolean isStdinTTY() {
-            return OperatingSystem.isWindows()
-                    ? isWindowsStdinTTY() : isUnixStdinTTY();
-        }
-
-        @SuppressWarnings("restricted")
-        private static boolean isUnixStdinTTY() {
-            try {
-                Linker linker = Linker.nativeLinker();
-                SymbolLookup stdlib = linker.defaultLookup();
-                MethodHandle isatty = linker.downcallHandle(
-                        stdlib.find("isatty").get(),
-                        FunctionDescriptor.of(JAVA_INT, JAVA_INT));
-                return (int) isatty.invokeExact(0) != 0;
-            } catch (Throwable t) {
-                return false;
-            }
-        }
-
-        @SuppressWarnings("restricted")
-        private static boolean isWindowsStdinTTY() {
-            try {
-                Linker linker = Linker.nativeLinker();
-                SymbolLookup lookup = SymbolLookup.libraryLookup("Kernel32", Arena.global());
-                MethodHandle getStdHandle = linker.downcallHandle(
-                        lookup.find("GetStdHandle").orElseThrow(),
-                        FunctionDescriptor.of(JAVA_INT, JAVA_INT));
-                MethodHandle getFileType = linker.downcallHandle(
-                        lookup.find("GetFileType").orElseThrow(),
-                        FunctionDescriptor.of(JAVA_INT, JAVA_INT));
-                int hStdIn = (int)
-                        getStdHandle.invoke(-10); // STD_INPUT_HANDLE
-                if (hStdIn == -1) { // INVALID_HANDLE_VALUE
-                    return false;
-                }
-                return (int) getFileType.invoke(hStdIn) == 2; // FILE_TYPE_CHAR;
-            } catch (Throwable e) {
-                return false;
             }
         }
 
