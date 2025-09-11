@@ -23,6 +23,9 @@
  * questions.
  */
 import javax.crypto.Cipher;
+import javax.crypto.hpke.StandardAead;
+import javax.crypto.hpke.StandardKdf;
+import javax.crypto.hpke.StandardKem;
 import javax.crypto.spec.HPKEParameterSpec;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
@@ -42,9 +45,9 @@ class PackageSnippets {
         // and application-supplied info.
         Cipher senderCipher = Cipher.getInstance("HPKE");
         HPKEParameterSpec ps = HPKEParameterSpec.of(
-                        HPKEParameterSpec.KEM_DHKEM_X25519_HKDF_SHA256,
-                        HPKEParameterSpec.KDF_HKDF_SHA256,
-                        HPKEParameterSpec.AEAD_AES_128_GCM)
+                        StandardKem.DHKEM_X25519_HKDF_SHA256,
+                        StandardKdf.HKDF_SHA256,
+                        StandardAead.AES_128_GCM)
                 .withInfo("app_info".getBytes(StandardCharsets.UTF_8));
         senderCipher.init(Cipher.ENCRYPT_MODE, kp.getPublic(), ps);
 
@@ -57,9 +60,9 @@ class PackageSnippets {
         // the sender, and the key encapsulation message from the sender.
         Cipher recipientCipher = Cipher.getInstance("HPKE");
         HPKEParameterSpec pr = HPKEParameterSpec.of(
-                        HPKEParameterSpec.KEM_DHKEM_X25519_HKDF_SHA256,
-                        HPKEParameterSpec.KDF_HKDF_SHA256,
-                        HPKEParameterSpec.AEAD_AES_128_GCM)
+                        StandardKem.DHKEM_X25519_HKDF_SHA256,
+                        StandardKdf.HKDF_SHA256,
+                        StandardAead.AES_128_GCM)
                 .withInfo("app_info".getBytes(StandardCharsets.UTF_8))
                 .withEncapsulation(kemEncap);
         recipientCipher.init(Cipher.DECRYPT_MODE, kp.getPrivate(), pr);

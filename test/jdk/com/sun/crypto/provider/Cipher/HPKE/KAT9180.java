@@ -36,6 +36,9 @@ import jdk.test.lib.json.JSONValue;
 import com.sun.crypto.provider.DHKEM;
 
 import javax.crypto.Cipher;
+import javax.crypto.hpke.Aead;
+import javax.crypto.hpke.Kdf;
+import javax.crypto.hpke.Kem;
 import javax.crypto.spec.HPKEParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
@@ -83,7 +86,7 @@ public class KAT9180 {
             var info = h.parseHex(tg.get("info").asString());
 
             var kpR = new DHKEM.RFC9180DeriveKeyPairSR(ikmR).derive(kem_id);
-            var spec = HPKEParameterSpec.of(kem_id, kdf_id, aead_id).withInfo(info);
+            var spec = HPKEParameterSpec.of(Kem.from(kem_id), Kdf.from(kdf_id), Aead.from(aead_id)).withInfo(info);
             var rand = new DHKEM.RFC9180DeriveKeyPairSR(ikmE);
 
             if (mode == 1 || mode == 3) {

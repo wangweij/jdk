@@ -39,6 +39,9 @@ import javax.crypto.Cipher;
 import javax.crypto.KEM;
 import javax.crypto.KeyAgreement;
 import javax.crypto.KeyGenerator;
+import javax.crypto.hpke.StandardAead;
+import javax.crypto.hpke.StandardKdf;
+import javax.crypto.hpke.StandardKem;
 import javax.crypto.spec.ChaCha20ParameterSpec;
 import javax.crypto.spec.DHParameterSpec;
 import javax.crypto.spec.GCMParameterSpec;
@@ -99,9 +102,9 @@ public class Deterministic {
             spec = new PBEParameterSpec("saltsalt".getBytes(StandardCharsets.UTF_8), 100);
         } else if (alg.equals("HPKE")) {
             key = KeyPairGenerator.getInstance("x25519").generateKeyPair().getPublic();
-            spec = HPKEParameterSpec.of(HPKEParameterSpec.KEM_DHKEM_X25519_HKDF_SHA256,
-                    HPKEParameterSpec.KDF_HKDF_SHA256,
-                    HPKEParameterSpec.AEAD_AES_256_GCM);
+            spec = HPKEParameterSpec.of(StandardKem.DHKEM_X25519_HKDF_SHA256,
+                    StandardKdf.HKDF_SHA256,
+                    StandardAead.AES_256_GCM);
         } else {
             key = generateKey(alg.split("/")[0], s.getProvider());
             if (!alg.contains("/") || alg.contains("/ECB/")) {

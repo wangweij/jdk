@@ -24,6 +24,7 @@
 import jdk.test.lib.Asserts;
 
 import javax.crypto.Cipher;
+import javax.crypto.hpke.Kem;
 import javax.crypto.spec.HPKEParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
@@ -32,17 +33,9 @@ import java.security.KeyPairGenerator;
 import java.security.spec.ECGenParameterSpec;
 import java.util.List;
 
-import static javax.crypto.spec.HPKEParameterSpec.AEAD_AES_128_GCM;
-import static javax.crypto.spec.HPKEParameterSpec.AEAD_AES_256_GCM;
-import static javax.crypto.spec.HPKEParameterSpec.AEAD_CHACHA20_POLY1305;
-import static javax.crypto.spec.HPKEParameterSpec.KDF_HKDF_SHA256;
-import static javax.crypto.spec.HPKEParameterSpec.KDF_HKDF_SHA384;
-import static javax.crypto.spec.HPKEParameterSpec.KDF_HKDF_SHA512;
-import static javax.crypto.spec.HPKEParameterSpec.KEM_DHKEM_P_256_HKDF_SHA256;
-import static javax.crypto.spec.HPKEParameterSpec.KEM_DHKEM_P_384_HKDF_SHA384;
-import static javax.crypto.spec.HPKEParameterSpec.KEM_DHKEM_P_521_HKDF_SHA512;
-import static javax.crypto.spec.HPKEParameterSpec.KEM_DHKEM_X25519_HKDF_SHA256;
-import static javax.crypto.spec.HPKEParameterSpec.KEM_DHKEM_X448_HKDF_SHA512;
+import static javax.crypto.hpke.StandardAead.*;
+import static javax.crypto.hpke.StandardKdf.*;
+import static javax.crypto.hpke.StandardKem.*;
 
 /*
  * @test
@@ -52,13 +45,13 @@ import static javax.crypto.spec.HPKEParameterSpec.KEM_DHKEM_X448_HKDF_SHA512;
  */
 public class Functions {
 
-    record Params(String name, int kem) {}
+    record Params(String name, Kem kem) {}
     static List<Params> PARAMS = List.of(
-            new Params("secp256r1", KEM_DHKEM_P_256_HKDF_SHA256),
-            new Params("secp384r1", KEM_DHKEM_P_384_HKDF_SHA384),
-            new Params("secp521r1", KEM_DHKEM_P_521_HKDF_SHA512),
-            new Params("X25519", KEM_DHKEM_X25519_HKDF_SHA256),
-            new Params("X448", KEM_DHKEM_X448_HKDF_SHA512)
+            new Params("secp256r1", DHKEM_P_256_HKDF_SHA256),
+            new Params("secp384r1", DHKEM_P_384_HKDF_SHA384),
+            new Params("secp521r1", DHKEM_P_521_HKDF_SHA512),
+            new Params("X25519", DHKEM_X25519_HKDF_SHA256),
+            new Params("X448", DHKEM_X448_HKDF_SHA512)
     );
 
     public static void main(String[] args) throws Exception {
@@ -74,8 +67,8 @@ public class Functions {
             var c2 = Cipher.getInstance("HPKE");
             var kp = genKeyPair(param.name());
             var kp2 = genKeyPair(param.name());
-            for (var kdf : List.of(KDF_HKDF_SHA256, KDF_HKDF_SHA384, KDF_HKDF_SHA512)) {
-                for (var aead : List.of(AEAD_AES_256_GCM, AEAD_AES_128_GCM, AEAD_CHACHA20_POLY1305)) {
+            for (var kdf : List.of(HKDF_SHA256, HKDF_SHA384, HKDF_SHA512)) {
+                for (var aead : List.of(AES_256_GCM, AES_128_GCM, CHACHA20_POLY1305)) {
 
                     var params = HPKEParameterSpec.of(param.kem, kdf, aead);
                     System.out.println(params);

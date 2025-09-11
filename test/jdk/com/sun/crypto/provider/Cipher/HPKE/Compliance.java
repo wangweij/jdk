@@ -25,6 +25,9 @@ import jdk.test.lib.Asserts;
 
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
+import javax.crypto.hpke.Aead;
+import javax.crypto.hpke.Kdf;
+import javax.crypto.hpke.Kem;
 import javax.crypto.spec.HPKEParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
@@ -34,9 +37,9 @@ import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 
-import static javax.crypto.spec.HPKEParameterSpec.AEAD_AES_256_GCM;
-import static javax.crypto.spec.HPKEParameterSpec.KDF_HKDF_SHA256;
-import static javax.crypto.spec.HPKEParameterSpec.KEM_DHKEM_X25519_HKDF_SHA256;
+import static javax.crypto.hpke.StandardAead.AES_256_GCM;
+import static javax.crypto.hpke.StandardKdf.HKDF_SHA256;
+import static javax.crypto.hpke.StandardKem.DHKEM_X25519_HKDF_SHA256;
 
 /*
  * @test
@@ -62,12 +65,12 @@ public class Compliance {
 
         // A typical spec
         var spec = HPKEParameterSpec.of(
-                KEM_DHKEM_X25519_HKDF_SHA256,
-                KDF_HKDF_SHA256,
-                AEAD_AES_256_GCM);
-        Asserts.assertEQ(spec.kem_id(), KEM_DHKEM_X25519_HKDF_SHA256);
-        Asserts.assertEQ(spec.kdf_id(), KDF_HKDF_SHA256);
-        Asserts.assertEQ(spec.aead_id(), AEAD_AES_256_GCM);
+                DHKEM_X25519_HKDF_SHA256,
+                HKDF_SHA256,
+                AES_256_GCM);
+        Asserts.assertEQ(spec.kem_id(), DHKEM_X25519_HKDF_SHA256.id());
+        Asserts.assertEQ(spec.kdf_id(), HKDF_SHA256.id());
+        Asserts.assertEQ(spec.aead_id(), AES_256_GCM.id());
         Asserts.assertEQ(spec.authKey(), null);
         Asserts.assertEQ(spec.encapsulation(), null);
         Asserts.assertEqualsByteArray(spec.info(), new byte[0]);
@@ -75,7 +78,7 @@ public class Compliance {
         Asserts.assertEqualsByteArray(spec.psk_id(), new byte[0]);
 
         // A fake spec but still valid
-        var specZero = HPKEParameterSpec.of(0, 0, 0);
+        var specZero = HPKEParameterSpec.of(Kem.from(0), Kdf.from(0), Aead.from(0));
         Asserts.assertEQ(specZero.kem_id(), 0);
         Asserts.assertEQ(specZero.kdf_id(), 0);
         Asserts.assertEQ(specZero.aead_id(), 0);
@@ -86,19 +89,19 @@ public class Compliance {
         Asserts.assertEqualsByteArray(specZero.psk_id(), new byte[0]);
 
         // identifiers
-        HPKEParameterSpec.of(65535, 65535, 65535);
+        HPKEParameterSpec.of(Kem.from(65535), Kdf.from(65535), Aead.from(65535));
         Asserts.assertThrows(IllegalArgumentException.class,
-                () -> HPKEParameterSpec.of(-1, 0, 0));
+                () -> HPKEParameterSpec.of(Kem.from(-1), Kdf.from(0), Aead.from(0)));
         Asserts.assertThrows(IllegalArgumentException.class,
-                () -> HPKEParameterSpec.of(0, -1, 0));
+                () -> HPKEParameterSpec.of(Kem.from(0), Kdf.from(-1), Aead.from(0)));
         Asserts.assertThrows(IllegalArgumentException.class,
-                () -> HPKEParameterSpec.of(0, 0, -1));
+                () -> HPKEParameterSpec.of(Kem.from(0), Kdf.from(0), Aead.from(-1)));
         Asserts.assertThrows(IllegalArgumentException.class,
-                () -> HPKEParameterSpec.of(65536, 0, 0));
+                () -> HPKEParameterSpec.of(Kem.from(65536), Kdf.from(0), Aead.from(0)));
         Asserts.assertThrows(IllegalArgumentException.class,
-                () -> HPKEParameterSpec.of(0, 65536, 0));
+                () -> HPKEParameterSpec.of(Kem.from(0), Kdf.from(65536), Aead.from(0)));
         Asserts.assertThrows(IllegalArgumentException.class,
-                () -> HPKEParameterSpec.of(0, 0, 65536));
+                () -> HPKEParameterSpec.of(Kem.from(0), Kdf.from(0), Aead.from(65536)));
 
         // auth key
         Asserts.assertTrue(spec.withAuthKey(kp.getPrivate()).authKey() != null);
@@ -191,16 +194,16 @@ public class Compliance {
         // Unsupported identifiers
         Asserts.assertThrows(InvalidAlgorithmParameterException.class,
                 () -> c1.init(Cipher.ENCRYPT_MODE, kp.getPublic(),
-                        HPKEParameterSpec.of(0, KDF_HKDF_SHA256, AEAD_AES_256_GCM)));
+                        HPKEParameterSpec.of(Kem.from(0), HKDF_SHA256, AES_256_GCM)));
         Asserts.assertThrows(InvalidAlgorithmParameterException.class,
                 () -> c1.init(Cipher.ENCRYPT_MODE, kp.getPublic(),
-                        HPKEParameterSpec.of(0x200, KDF_HKDF_SHA256, AEAD_AES_256_GCM)));
+                        HPKEParameterSpec.of(Kem.from(0x200), HKDF_SHA256, AES_256_GCM)));
         Asserts.assertThrows(InvalidAlgorithmParameterException.class,
                 () -> c1.init(Cipher.ENCRYPT_MODE, kp.getPublic(),
-                        HPKEParameterSpec.of(KEM_DHKEM_X25519_HKDF_SHA256, 4, AEAD_AES_256_GCM)));
+                        HPKEParameterSpec.of(DHKEM_X25519_HKDF_SHA256, Kdf.from(4), AES_256_GCM)));
         Asserts.assertThrows(InvalidAlgorithmParameterException.class,
                 () -> c1.init(Cipher.ENCRYPT_MODE, kp.getPublic(),
-                        HPKEParameterSpec.of(KEM_DHKEM_X25519_HKDF_SHA256, KDF_HKDF_SHA256, 4)));
+                        HPKEParameterSpec.of(DHKEM_X25519_HKDF_SHA256, HKDF_SHA256, Aead.from(4))));
 
         // HPKE
         checkEncryptDecrypt(kp, spec, spec);
