@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2025, 2026, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -23,7 +23,7 @@
 
 /*
  * @test
- * @bug 8325448
+ * @bug 8325448 8379541
  * @summary KAT inside RFC 9180
  * @library /test/lib
  * @modules java.base/com.sun.crypto.provider
@@ -127,6 +127,22 @@ public class KAT9180 {
                     c2.updateAAD(aad);
                     var pt1 = c2.doFinal(ct);
                     Asserts.assertEqualsByteArray(pt, pt1);
+                    count++;
+                }
+                System.err.print(count);
+            }
+            var exports = tg.get("exports");
+            if (exports != null) {
+                System.err.print('x');
+                var count = 0;
+                for (var p : exports.asArray()) {
+                    var exporter_context = h.parseHex(p.get("exporter_context").asString());
+                    var L = Integer.parseInt(p.get("L").asString());
+                    var exported_value = h.parseHex(p.get("exported_value").asString());
+                    var d1 = c1.exportData(exporter_context, L);
+                    var d2 = c2.exportData(exporter_context, L);
+                    Asserts.assertEqualsByteArray(exported_value, d1);
+                    Asserts.assertEqualsByteArray(exported_value, d2);
                     count++;
                 }
                 System.err.print(count);
