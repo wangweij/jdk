@@ -24,17 +24,16 @@
 /*
  * @test
  * @bug 8325513
+ * @summary Try out the export method
  * @library /test/lib /test/jdk/security/unsignedjce
  * @build java.base/javax.crypto.ProviderVerifier
  * @run main/othervm Export
- * @summary Try out the export method
  */
 
 import jdk.test.lib.Asserts;
 
 import javax.crypto.Cipher;
 import javax.crypto.CipherSpi;
-import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;

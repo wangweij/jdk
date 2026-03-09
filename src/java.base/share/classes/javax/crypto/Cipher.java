@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2026, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -2609,12 +2609,12 @@ public class Cipher {
      *          state (e.g., has not been initialized)
      * @throws NullPointerException if {@code algorithm} is {@code null}
      *
-     * @since 26
+     * @since 27
      */
     public SecretKey exportKey(String algorithm, byte[] context, int length) {
         Objects.requireNonNull(algorithm);
         if (length <= 0) {
-            throw new IllegalArgumentException("length cannot be negative");
+            throw new IllegalArgumentException("length must be a postive number");
         }
         checkCipherState();
         chooseFirstProvider();
@@ -2653,11 +2653,11 @@ public class Cipher {
      * @throws IllegalStateException if this {@code Cipher} object is in a wrong
      *          state (e.g., has not been initialized)
      *
-     * @since 26
+     * @since 27
      */
     public byte[] exportData(byte[] context, int length) {
         if (length <= 0) {
-            throw new IllegalArgumentException("length cannot be negative");
+            throw new IllegalArgumentException("length must be a postive number");
         }
         checkCipherState();
         chooseFirstProvider();

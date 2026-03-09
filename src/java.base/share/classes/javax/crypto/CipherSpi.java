@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2026, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -988,7 +988,7 @@ public abstract class CipherSpi {
      * @implSpec The default implementation throws an
      * {@code UnsupportedOperationException}.
      *
-     * @since 26
+     * @since 27
      */
     protected SecretKey engineExportKey(String algorithm, byte[] context, int length) {
         throw new UnsupportedOperationException(
@@ -1029,7 +1029,7 @@ public abstract class CipherSpi {
      * @implSpec The default implementation throws an
      * {@code UnsupportedOperationException}.
      *
-     * @since 26
+     * @since 27
      */
     protected byte[] engineExportData(byte[] context, int length) {
         throw new UnsupportedOperationException(
