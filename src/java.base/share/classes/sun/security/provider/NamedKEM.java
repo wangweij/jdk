@@ -46,6 +46,12 @@ import java.util.Arrays;
 /// A base class for all `KEM` implementations that can be
 /// configured with a named parameter set. See [NamedKeyPairGenerator]
 /// for more details.
+///
+/// Note: an `IllegalStateException` will be thrown by
+/// 1. `newDecapsulator()` if a destroyed key is used, or
+/// 2. `decapsulate()` if a native (i.e. `NamedPKCS8Key`) key is provided to
+///    `newDecapsulator` and later destroyed. This happens even if
+///    `implCheckPrivateKey` returns an alternate form.
 public abstract class NamedKEM implements KEMSpi {
 
     private final String fname; // family name
@@ -75,7 +81,7 @@ public abstract class NamedKEM implements KEMSpi {
         // translate also check the key
         var nk = (NamedX509Key) fac.toNamedKey(publicKey);
         var pk = nk.getRawBytes();
-        return getKeyConsumerImpl(this, nk.getParams(), pk,
+        return getKeyConsumerImpl(this, null, nk.getParams(), pk,
                 implCheckPublicKey(nk.getParams().getName(), pk), secureRandom);
     }
 
@@ -87,21 +93,31 @@ public abstract class NamedKEM implements KEMSpi {
             throw new InvalidAlgorithmParameterException(
                     "The " + fname + " algorithm does not take any parameters");
         }
+        if (privateKey.isDestroyed()) {
+            throw new IllegalStateException("key destroyed");
+        }
         // translate also check the key
         var nk = (NamedPKCS8Key) fac.toNamedKey(privateKey);
         var sk = nk.getExpanded();
-        return getKeyConsumerImpl(this, nk.getParams(), sk,
+        return getKeyConsumerImpl(this, nk, nk.getParams(), sk,
                 implCheckPrivateKey(nk.getParams().getName(), sk), null);
     }
 
-    // We don't have a flag on whether key is public key or private key.
-    // The correct method should always be called.
-    private record KeyConsumerImpl(NamedKEM kem, String pname, int sslen,
+    // We don't have a flag on whether this is an encapsulator or a decapsulator.
+    // The calling logic determines its role. Precisely, an encapsulator has
+    // nk == null, key being public key bytes, and only calls engineEncapsulate().
+    // A decapsulator has nk being the private key (to check for destroy state),
+    // key being the expanded key bytes, and only calls engineDecapsulate().
+    private record KeyConsumerImpl(NamedKEM kem, PrivateKey nk,
+            String pname, int sslen,
             int clen, byte[] key, Object k2, SecureRandom sr)
             implements KEMSpi.EncapsulatorSpi, KEMSpi.DecapsulatorSpi {
         @Override
         public SecretKey engineDecapsulate(byte[] encapsulation, int from, int to,
                 String algorithm) throws DecapsulateException {
+            if (nk.isDestroyed()) {
+                throw new IllegalStateException("key destroyed");
+            }
             if (encapsulation.length != clen) {
                 throw new DecapsulateException("Invalid key encapsulation message length");
             }
@@ -140,9 +156,10 @@ public abstract class NamedKEM implements KEMSpi {
     }
 
     private static KeyConsumerImpl getKeyConsumerImpl(NamedKEM kem,
+            NamedPKCS8Key nk,
             NamedParameterSpec nps, byte[] key, Object k2, SecureRandom sr) {
         String pname = nps.getName();
-        return new KeyConsumerImpl(kem, pname, kem.implSecretSize(pname), kem.implEncapsulationSize(pname),
+        return new KeyConsumerImpl(kem, nk, pname, kem.implSecretSize(pname), kem.implEncapsulationSize(pname),
                 key, k2, sr);
     }
 
